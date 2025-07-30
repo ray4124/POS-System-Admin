@@ -125,7 +125,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         await fetchBranches()
 
         const { data } = supabase.auth.onAuthStateChange(
-          async (event, session) => {
+          async (_, session) => {
             setUser(session?.user ?? null)
             if (session?.user) {
               await fetchProfile(session.user.id)
