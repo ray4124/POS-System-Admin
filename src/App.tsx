@@ -10,6 +10,7 @@ import { Promotions } from './components/Promotions'
 import { Employees } from './components/Employees'
 import { Reports } from './components/Reports'
 import './index.css'
+import 'react-datepicker/dist/react-datepicker.css';
 
 function AppContent() {
   const { user, profile, loading } = useAuth()

@@ -47,8 +47,8 @@ export function Layout({ children, activeTab, onTabChange }: LayoutProps) {
       isCashier ? "p-2" : "p-0"
     )}>
       {!isCashier && (
-        <header className="bg-brown-900 text-white shadow-lg">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <header className="bg-[#1F2937] text-white shadow-lg">
+          <div className="max-w-full mx-auto px-4 sm:px-6 lg:px-8">
             <div className="flex justify-between items-center h-16">
               <div className="flex items-center">
                 <Store className="h-8 w-8 text-primary mr-3" />
@@ -64,10 +64,10 @@ export function Layout({ children, activeTab, onTabChange }: LayoutProps) {
                 </div>
                 <button
                   onClick={signOut}
-                  className="flex items-center space-x-2 px-3 py-2 rounded-lg bg-brown-800 hover:bg-brown-700 transition-colors"
+                  className="flex items-center space-x-2 px-3 py-2 rounded-lg bg-[#E5E7EB] hover:bg-red-700 transition-colors"
                 >
-                  <LogOut className="h-4 w-4" />
-                  <span className="text-sm">Sign Out</span>
+                  <LogOut className="h-4 w-4 text-black" />
+                  <span className="text-sm text-black">Sign Out</span>
                 </button>
               </div>
             </div>
@@ -80,7 +80,7 @@ export function Layout({ children, activeTab, onTabChange }: LayoutProps) {
         isCashier ? "h-screen" : "h-[calc(100vh-4rem)]"
       )}>
         {!isCashier && (
-          <nav className="w-64 bg-white shadow-lg border-r border-brown-200">
+          <nav className="w-64 bg-white shadow-lg border-r border-[#1F2937]">
             <div className="p-4 space-y-2">
               {userNavItems.map((item) => {
                 const Icon = item.icon
@@ -92,7 +92,7 @@ export function Layout({ children, activeTab, onTabChange }: LayoutProps) {
                       "w-full flex items-center space-x-3 px-4 py-3 rounded-lg text-left transition-all",
                       activeTab === item.id
                         ? "bg-primary text-white shadow-md"
-                        : "text-brown-800 hover:bg-brown-100"
+                        : "text-black hover:bg-secondary hover:text-gray-200"
                     )}
                   >
                     <Icon className="h-5 w-5" />
@@ -105,7 +105,7 @@ export function Layout({ children, activeTab, onTabChange }: LayoutProps) {
         )}
 
         <main className={clsx(
-          "flex-1 overflow-auto",
+          "flex-1 overflow-auto bg-gray-50",
           isCashier ? "p-0" : "p-6"
         )}>
           {children}

@@ -12,7 +12,7 @@ export default {
         error: '#ff362c',        // Bright Red - Error/Urgent Alerts
         promo: '#fdf207',        // Bright Yellow - Promo Highlights
         background: '#fdf6f5',   // Pale Pink - Subtle Backgrounds
-        secondary: '#f48e1b',    // Orange - Secondary Promo
+        secondary: '#66b3e0',    // lighter Blue - Secondary Promo
         
         // Structural Neutrals
         'brown': {

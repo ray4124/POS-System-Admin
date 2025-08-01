@@ -1,47 +1,69 @@
-import { useState } from 'react'
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, LineChart, Line, PieChart, Pie, Cell, ResponsiveContainer } from 'recharts'
-import { Download, TrendingUp, FileText, DollarSign, ShoppingBag, Users, Package } from 'lucide-react'
-import { useAuth } from '../contexts/AuthContext'
+import { useState, useEffect, useMemo } from 'react';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, LineChart, Line, ResponsiveContainer } from 'recharts';
+import { Download, TrendingUp, FileText, DollarSign, ShoppingBag, Package, Receipt, TrendingDown, CalendarArrowDown } from 'lucide-react';
+import { useAuth } from '../contexts/AuthContext';
+import dayjs from 'dayjs';
+import salesData from '../mockdata/salesData365.json';
+import DatePicker from 'react-datepicker';
+import 'react-datepicker/dist/react-datepicker.css'
 
 export function Dashboard() {
   const { profile } = useAuth()
-  const [dateRange, setDateRange] = useState('30d')
+  const [dateRange, setDateRange] = useState(30)
+  const [dateText, setDateText] = useState(`Last ${dateRange} days`);
+  const [filteredData, setFilteredData] = useState<
+    { date: string; sales: number; sold: number; transactions: number; PayMethod: string }[]
+  >([]);
+  const [HPD, setHPD] = useState(new Date(new Date().setDate(new Date().getDate() - 1)));
+  const [hourlyData, setHourlyData] = useState<{ hour: string; sales: number; orders: number }[]>([]);
 
-  const salesData = [
-    { date: '2025-01-01', sales: 15200, orders: 89, customers: 67 },
-    { date: '2025-01-02', sales: 18500, orders: 102, customers: 78 },
-    { date: '2025-01-03', sales: 16800, orders: 95, customers: 71 },
-    { date: '2025-01-04', sales: 21200, orders: 118, customers: 89 },
-    { date: '2025-01-05', sales: 19600, orders: 108, customers: 82 },
-    { date: '2025-01-06', sales: 24800, orders: 135, customers: 98 },
-    { date: '2025-01-07', sales: 22400, orders: 125, customers: 91 },
-  ]
+  // Helper functions
+  const formatHourLabel = (hour: number): string => {
+    const period = hour >= 12 ? 'PM' : 'AM';
+    const formattedHour = hour % 12 === 0 ? 12 : hour % 12;
+    return `${formattedHour} ${period}`;
+  };
 
-  const categoryPerformance = [
-    { name: 'Coffee', sales: 125600, orders: 892, color: '#38b6ff' },
-    { name: 'Food', sales: 98400, orders: 456, color: '#f48e1b' },
-    { name: 'Pastries', sales: 45200, orders: 234, color: '#fdf207' },
-    { name: 'Beverages', sales: 32100, orders: 167, color: '#932f17' },
-  ]
+  const convertLabelTo24Hour = (label: string): number => {
+    const [hourStr, period] = label.split(" ");
+    let hour = parseInt(hourStr, 10);
+    if (period === "PM" && hour !== 12) hour += 12;
+    if (period === "AM" && hour === 12) hour = 0;
+    return hour;
+  };
 
-  const hourlyData = [
-    { hour: '6 AM', sales: 1200, orders: 8 },
-    { hour: '7 AM', sales: 3400, orders: 22 },
-    { hour: '8 AM', sales: 5600, orders: 34 },
-    { hour: '9 AM', sales: 4200, orders: 28 },
-    { hour: '10 AM', sales: 3800, orders: 24 },
-    { hour: '11 AM', sales: 4900, orders: 31 },
-    { hour: '12 PM', sales: 7200, orders: 45 },
-    { hour: '1 PM', sales: 6800, orders: 42 },
-    { hour: '2 PM', sales: 5400, orders: 35 },
-    { hour: '3 PM', sales: 4600, orders: 29 },
-    { hour: '4 PM', sales: 5200, orders: 33 },
-    { hour: '5 PM', sales: 6400, orders: 39 },
-    { hour: '6 PM', sales: 5800, orders: 37 },
-    { hour: '7 PM', sales: 4200, orders: 27 },
-    { hour: '8 PM', sales: 2800, orders: 18 },
-    { hour: '9 PM', sales: 1600, orders: 12 },
-  ]
+  const formatHourlySalesData = (data: typeof salesData, date: Date) => {
+    const hourlyMap: { [key: string]: { sales: number; orders: number } } = {};
+
+    data.forEach(entry => {
+      const entryDate = new Date(entry.date);
+
+      const isSameDay =
+        entryDate.getFullYear() === date.getFullYear() &&
+        entryDate.getMonth() === date.getMonth() &&
+        entryDate.getDate() === date.getDate();
+
+      if (isSameDay) {
+        const hour = entryDate.getHours();
+        const label = formatHourLabel(hour);
+
+        if (!hourlyMap[label]) {
+          hourlyMap[label] = { sales: 0, orders: 0 };
+        }
+
+        hourlyMap[label].sales += entry.sales;
+        hourlyMap[label].orders += entry.transactions;
+      }
+    });
+
+    return Object.entries(hourlyMap)
+      .map(([hour, values]) => ({
+        hour,
+        sales: values.sales,
+        orders: values.orders,
+      }))
+      .sort((a, b) => convertLabelTo24Hour(a.hour) - convertLabelTo24Hour(b.hour));
+  };
 
   const topProducts = [
     { name: 'Cappuccino', sales: 18720, quantity: 156, revenue: 18720 },
@@ -52,12 +74,6 @@ export function Dashboard() {
     { name: 'Americano', sales: 9800, quantity: 140, revenue: 9800 },
     { name: 'Cheesecake', sales: 6525, quantity: 45, revenue: 6525 },
     { name: 'Croissant', sales: 5600, quantity: 80, revenue: 5600 },
-  ]
-
-  const paymentMethods = [
-    { name: 'Cash', value: 45, amount: 124560, color: '#932f17' },
-    { name: 'GCash', value: 35, amount: 96890, color: '#38b6ff' },
-    { name: 'Maya', value: 20, amount: 55340, color: '#f48e1b' },
   ]
 
   const branchComparison = [
@@ -75,17 +91,17 @@ export function Dashboard() {
     subtitle?: string
     color?: string
   }) => (
-    <div className="bg-white p-6 rounded-xl shadow-sm border border-brown-100">
+    <div className="bg-white p-6 rounded-xl shadow-sm border border-[#1F2937]">
       <div className="flex items-center justify-between mb-4">
         <div className={`p-3 rounded-lg bg-${color}/10`}>
           <Icon className={`h-6 w-6 text-${color === 'primary' ? 'primary' : color === 'secondary' ? 'secondary' : 'brown-800'}`} />
         </div>
       </div>
-      <h3 className="text-2xl font-bold text-brown-900 mb-1">
+      <h3 className="text-2xl font-bold text-gray-800 mb-1">
         {typeof value === 'number' && title.includes('Revenue') ? `₱${value.toLocaleString()}` : value}
       </h3>
-      <p className="text-brown-600 text-sm">{title}</p>
-      {subtitle && <p className="text-brown-500 text-xs mt-1">{subtitle}</p>}
+      <p className="text-gray-800 text-sm">{title}</p>
+      {subtitle && <p className="text-gray-500 text-xs mt-1">{subtitle}</p>}
     </div>
   )
 
@@ -94,27 +110,162 @@ export function Dashboard() {
     alert(`Exporting report as ${format.toUpperCase()}...`)
   }
 
+  useEffect(() => {
+    setDateText(`Last ${dateRange === 365 ? "12 months" : `${dateRange} days`}`);
+
+    const now = dayjs();
+    const filtered = salesData
+      .filter(item => dayjs(item.date).isAfter(now.subtract(dateRange, 'day')))
+      .map(item => ({
+        ...item,
+        sales: Number(item.sales),         // ensure numeric
+        sold: Number(item.sold),
+        transactions: Number(item.transactions),
+        date: dayjs(item.date).format('YYYY-MM-DD'), // normalize date format
+      }))
+      .sort((a, b) => dayjs(a.date).unix() - dayjs(b.date).unix()); // ascending order
+
+    setFilteredData(filtered);
+    setDateText(`Last ${dateRange === 365 ? "12 months" : `${dateRange} days`}`);
+  }, [dateRange]);
+
+  const stats = useMemo(() => {
+    return filteredData.reduce(
+      (acc, curr) => {
+        acc.sales += curr.sales;
+        acc.sold += curr.sold;
+        acc.transactions += 1;
+
+        const method = curr.PayMethod === 'E-wallet' ? 'E-wallet' : 'Cash';
+
+        acc.paymentCounts[method] = (acc.paymentCounts[method] || 0) + 1;
+        acc.paymentSales[method] = (acc.paymentSales[method] || 0) + curr.sales;
+
+        return acc;
+      },
+      {
+        sales: 0,
+        sold: 0,
+        transactions: 0,
+        paymentCounts: {
+          Cash: 0,
+          'E-wallet': 0
+        },
+        paymentSales: {
+          Cash: 0,
+          'E-wallet': 0
+        }
+      }
+    );
+  }, [filteredData]);
+  
+
+  function getGroupedSalesData(data: any[], dateRange: number) {
+    const now = dayjs();
+    const startDate = now.subtract(dateRange, 'day');
+    
+    // Filter data within date range
+    const filtered = data.filter(item => dayjs(item.date).isAfter(startDate));
+    
+    if (dateRange === 365) {
+      // Group by every 2 months but pick only the first data point in each 2-month bucket
+    
+      const buckets: Record<string, any> = {};
+    
+      filtered.forEach(item => {
+        const d = dayjs(item.date);
+        const year = d.year();
+        const month = d.month(); // 0-based month
+        const bucketMonth = Math.floor(month / 2) * 2;
+        const bucketKey = dayjs(new Date(year, bucketMonth, 1)).format('YYYY-MM-DD');
+      
+        // Only store the first item encountered per bucket (earliest)
+        if (!buckets[bucketKey]) {
+          buckets[bucketKey] = item;
+        }
+      });
+    
+      return Object.values(buckets).sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+    } else {
+      // For 7, 30, 90 days - sample by step index
+    
+      let step = 1;
+      if (dateRange === 30) step = 5;
+      else if (dateRange === 90) step = 15;
+    
+      const sorted = filtered.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+    
+      return sorted.filter((_, i) => i % step === 0);
+    }
+  }
+
+  const groupedData = getGroupedSalesData(filteredData, dateRange);
+
+  const salesChangePercent = useMemo(() => {
+    if (!groupedData.length) return 0;
+
+    const firstSales = groupedData[0].sales;
+    const lastSales = groupedData[groupedData.length - 1].sales;
+
+    if (firstSales === 0) return 0; // avoid division by zero
+
+    return ((lastSales - firstSales) / firstSales) * 100;
+  }, [filteredData, dateRange]);
+
+  const handleSalesDateChange = (date: Date | null) => {
+    if (!date) return;
+    setHPD(date);
+    const newData = formatHourlySalesData(salesData, date);
+    setHourlyData(newData);
+  };
+
+  useEffect(() => {
+    const newData = formatHourlySalesData(salesData, HPD);
+    setHourlyData(newData);
+  }, [HPD]);
+
+  const totalSales = stats.paymentSales['Cash'] + stats.paymentSales['E-wallet'];
+
+  const paymentMethods = [
+    {
+      name: 'Cash',
+      amount: stats.paymentSales['Cash'],
+      value: totalSales > 0
+        ? Math.round((stats.paymentSales['Cash'] / totalSales) * 100)
+        : 0,
+      color: 'green' // Gold
+    },
+    {
+      name: 'E-wallet',
+      amount: stats.paymentSales['E-wallet'],
+      value: totalSales > 0
+        ? Math.round((stats.paymentSales['E-wallet'] / totalSales) * 100)
+        : 0,
+      color: 'blue' // Blue
+    }
+  ];
+
+
   return (
     <div className={`space-y-6 ${isMobileOptimized ? 'p-4' : ''}`}>
       {/* Header */}
       <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
         <div>
-          <h1 className="text-2xl lg:text-3xl font-bold text-brown-900">Dashboard</h1>
-          <p className="text-brown-600">Welcome back, {profile?.full_name}!</p>
+          <h1 className="text-2xl lg:text-3xl font-bold text-gray-800">Dashboard</h1>
+          <p className="text-gray-500">Welcome back, {profile?.full_name}!</p>
         </div>
         
         <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
           <select
             value={dateRange}
-            onChange={(e) => setDateRange(e.target.value)}
-            className="px-4 py-2 border border-brown-200 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
+            onChange={(e) => setDateRange(Number(e.target.value))} // Cast to number
+            className="px-4 py-2 border border-[#1F2937] rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
           >
-            <option value="1d">Today</option>
-            <option value="7d">Last 7 days</option>
-            <option value="30d">Last 30 days</option>
-            <option value="90d">Last 90 days</option>
-            <option value="1y">Last year</option>
-          </select> 
+            <option value={7}>Last 7 days</option>
+            <option value={30}>Last 30 days</option>
+            <option value={90}>Last 90 days</option>
+            <option value={365}>Last year</option>
+          </select>
           
           <div className="flex gap-2">
             <button
@@ -132,50 +283,58 @@ export function Dashboard() {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <StatCard
           title="Total Revenue"
-          value={397790}
+          value={stats.sales}
           icon={DollarSign}
-          subtitle="Last 30 days"
+          subtitle={dateText}
         />
         <StatCard
-          title="Total Orders"
-          value={3275}
+          title="Product Sold"
+          value={stats.sold}
           icon={ShoppingBag}
-          subtitle="Last 30 days"
+          subtitle={dateText}
         />
         <StatCard
-          title="Total Customers"
-          value={2368}
-          icon={Users}
-          subtitle="Unique customers"
+          title="Total Transactions"
+          value={stats.transactions}
+          icon={Receipt}
+          subtitle={dateText}
         />
         <StatCard
-          title="Products Sold"
+          title="Total Inventory"
           value={8942}
           icon={Package}
-          subtitle="Total items"
+          subtitle={dateText}
         />
       </div>
 
       {/* Main Charts */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-1 gap-6">
         {/* Sales Trend */}
-        <div className="bg-white p-6 rounded-xl shadow-sm border border-brown-100">
+        <div className="bg-white p-6 rounded-xl shadow-sm border border-[#1F2937]">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-xl font-bold text-brown-900">Sales Trend</h2>
-            <div className="flex items-center gap-2 text-green-600">
-              <TrendingUp className="h-4 w-4" />
-              <span className="text-sm font-medium">+12.5%</span>
+            <div className="flex items-center gap-2" style={{ color: salesChangePercent >= 0 ? 'green' : 'red' }}>
+              {salesChangePercent >= 0 ? (
+                <TrendingUp className="h-4 w-4" />
+              ) : (
+                <TrendingDown className="h-4 w-4" />
+              )}
+              <span className="text-sm font-medium">
+                {salesChangePercent >= 0 ? '+' : ''}
+                {salesChangePercent.toFixed(1)}%
+              </span>
             </div>
           </div>
           <ResponsiveContainer width="100%" height={300}>
-            <LineChart data={salesData}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#efc282" />
+            <LineChart data={getGroupedSalesData(filteredData, dateRange)}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#000000" />
               <XAxis 
                 dataKey="date" 
-                stroke="#932f17"
+                stroke="#1F2937"
                 tickFormatter={(value) => new Date(value).toLocaleDateString()}
+                padding={{left: 60, right: 60}}
               />
-              <YAxis stroke="#932f17" />
+              <YAxis stroke="#1F2937" />
               <Tooltip 
                 contentStyle={{ 
                   backgroundColor: '#fdf6f5', 
@@ -183,54 +342,45 @@ export function Dashboard() {
                   borderRadius: '8px'
                 }}
                 labelFormatter={(value) => new Date(value).toLocaleDateString()}
-                formatter={(value: any, name: string) => [
+                formatter={(value, name) => [
                   name === 'sales' ? `₱${value.toLocaleString()}` : value,
                   name === 'sales' ? 'Sales' : 'Orders'
                 ]}
               />
               <Line 
-                type="monotone" 
-                dataKey="sales" 
-                stroke="#38b6ff" 
+                type="monotone"
+                dataKey="sales"
+                stroke="#38b6ff"
                 strokeWidth={3}
-                dot={{ fill: '#38b6ff', r: 6 }}
+                dot={{ fill: '#38b6ff', r: 6, stroke: '#38b6ff', strokeWidth: 2 }}
               />
             </LineChart>
-          </ResponsiveContainer>
-        </div>
-
-        {/* Category Performance */}
-        <div className="bg-white p-6 rounded-xl shadow-sm border border-brown-100">
-          <h2 className="text-xl font-bold text-brown-900 mb-4">Category Performance</h2>
-          <ResponsiveContainer width="100%" height={300}>
-            <PieChart>
-              <Pie
-                data={categoryPerformance}
-                cx="50%"
-                cy="50%"
-                outerRadius={100}
-                fill="#8884d8"
-                dataKey="sales"
-                label={({ name, value }) => `${name}: ₱${value.toLocaleString()}`}
-              >
-                {categoryPerformance.map((entry, index) => (
-                  <Cell key={`cell-${index}`} fill={entry.color} />
-                ))}
-              </Pie>
-              <Tooltip formatter={(value: any) => [`₱${value.toLocaleString()}`, 'Sales']} />
-            </PieChart>
           </ResponsiveContainer>
         </div>
       </div>
 
       {/* Hourly Sales Pattern */}
-      <div className="bg-white p-6 rounded-xl shadow-sm border border-brown-100">
-        <h2 className="text-xl font-bold text-brown-900 mb-4">Hourly Sales Pattern</h2>
+      <div className="bg-white p-6 rounded-xl shadow-sm border border-[#1F2937]">
+        <div className="flex flex-row justify-between">
+          <h2 className="text-xl font-bold text-brown-900 mb-4">Hourly Sales Pattern</h2>
+          <div className="relative w-full max-w-[200px]">
+            <DatePicker
+              selected={HPD}
+              onChange={(date) => handleSalesDateChange(date || new Date())}
+              className="w-full border p-2 pr-10 rounded-md"
+              maxDate={new Date(new Date().setDate(new Date().getDate() - 1))}
+              minDate={new Date(new Date().setDate(new Date().getDate() - 31))}
+              popperPlacement="bottom-end"
+              calendarClassName="z-20"
+            />
+            <CalendarArrowDown className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500 pointer-events-none" />
+          </div>
+        </div>
         <ResponsiveContainer width="100%" height={300}>
           <BarChart data={hourlyData}>
-            <CartesianGrid strokeDasharray="3 3" stroke="#efc282" />
-            <XAxis dataKey="hour" stroke="#932f17" />
-            <YAxis stroke="#932f17" />
+            <CartesianGrid strokeDasharray="3 3" stroke="#999999" />
+            <XAxis dataKey="hour" stroke="black" />
+            <YAxis stroke="black" />
             <Tooltip 
               contentStyle={{ 
                 backgroundColor: '#fdf6f5', 
@@ -293,8 +443,9 @@ export function Dashboard() {
         </div>
 
         {/* Payment Methods */}
-        <div className="bg-white p-6 rounded-xl shadow-sm border border-brown-100">
-          <h2 className="text-xl font-bold text-brown-900 mb-4">Payment Methods</h2>
+        <div className="bg-white p-6 rounded-xl shadow-sm border border-[#1F2937]">
+          <h2 className="text-xl font-bold text-gray-800">Payment Methods</h2>
+          <p className='text-sm text-gray-500 mb-4'>{dateText}</p>
           <div className="space-y-4">
             {paymentMethods.map((method) => (
               <div key={method.name} className="flex items-center justify-between p-3 bg-background rounded-lg">

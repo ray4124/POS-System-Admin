@@ -94,6 +94,7 @@
 @media (prefers-contrast: high) {
   :root {
     --primary: #0066cc;
+    --secondary: #66b3e0;
     --error: #cc0000;
     --background: #ffffff;
   }
