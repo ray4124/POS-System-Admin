@@ -12,7 +12,9 @@ export function Dashboard() {
   const [dateRange, setDateRange] = useState(30)
   const [dateText, setDateText] = useState(`Last ${dateRange} days`);
   const [filteredData, setFilteredData] = useState<
-    { date: string; sales: number; sold: number; transactions: number; PayMethod: string }[]
+    {
+      quantity_sold: number; product_name: string, date: string; sales: number; sold: number; transactions: number; PayMethod: string 
+}[]
   >([]);
   const [HPD, setHPD] = useState(new Date(new Date().setDate(new Date().getDate() - 1)));
   const [hourlyData, setHourlyData] = useState<{ hour: string; sales: number; orders: number }[]>([]);
@@ -34,28 +36,28 @@ export function Dashboard() {
 
   const formatHourlySalesData = (data: typeof salesData, date: Date) => {
     const hourlyMap: { [key: string]: { sales: number; orders: number } } = {};
-
+    
     data.forEach(entry => {
       const entryDate = new Date(entry.date);
-
+    
       const isSameDay =
         entryDate.getFullYear() === date.getFullYear() &&
         entryDate.getMonth() === date.getMonth() &&
         entryDate.getDate() === date.getDate();
-
+    
       if (isSameDay) {
         const hour = entryDate.getHours();
-        const label = formatHourLabel(hour);
-
+        const label = formatHourLabel(hour); // e.g., "2 PM"
+      
         if (!hourlyMap[label]) {
           hourlyMap[label] = { sales: 0, orders: 0 };
         }
-
+      
         hourlyMap[label].sales += entry.sales;
-        hourlyMap[label].orders += entry.transactions;
+        hourlyMap[label].orders += 1; // ✅ Each entry = 1 order
       }
     });
-
+  
     return Object.entries(hourlyMap)
       .map(([hour, values]) => ({
         hour,
@@ -64,17 +66,6 @@ export function Dashboard() {
       }))
       .sort((a, b) => convertLabelTo24Hour(a.hour) - convertLabelTo24Hour(b.hour));
   };
-
-  const topProducts = [
-    { name: 'Cappuccino', sales: 18720, quantity: 156, revenue: 18720 },
-    { name: 'Iced Latte', sales: 18090, quantity: 134, revenue: 18090 },
-    { name: 'Chicken Sandwich', sales: 17355, quantity: 89, revenue: 17355 },
-    { name: 'Espresso', sales: 14450, quantity: 170, revenue: 14450 },
-    { name: 'Caesar Salad', sales: 11055, quantity: 67, revenue: 11055 },
-    { name: 'Americano', sales: 9800, quantity: 140, revenue: 9800 },
-    { name: 'Cheesecake', sales: 6525, quantity: 45, revenue: 6525 },
-    { name: 'Croissant', sales: 5600, quantity: 80, revenue: 5600 },
-  ]
 
   const branchComparison = [
     { branch: 'Main - Makati', sales: 156800, orders: 1243, customers: 892 },
@@ -111,23 +102,23 @@ export function Dashboard() {
   }
 
   useEffect(() => {
-    setDateText(`Last ${dateRange === 365 ? "12 months" : `${dateRange} days`}`);
-
     const now = dayjs();
+    
     const filtered = salesData
       .filter(item => dayjs(item.date).isAfter(now.subtract(dateRange, 'day')))
       .map(item => ({
         ...item,
-        sales: Number(item.sales),         // ensure numeric
-        sold: Number(item.sold),
-        transactions: Number(item.transactions),
-        date: dayjs(item.date).format('YYYY-MM-DD'), // normalize date format
+        sales: Number(item.sales),           // Ensure numeric sales
+        sold: Number(item.quantity_sold),    // Products sold in this transaction
+        transactions: 1,                     // One transaction per row
+        date: dayjs(item.date).format('YYYY-MM-DD'), // Normalize for grouping
       }))
-      .sort((a, b) => dayjs(a.date).unix() - dayjs(b.date).unix()); // ascending order
-
+      .sort((a, b) => dayjs(a.date).unix() - dayjs(b.date).unix()); // Ascending date
+    
     setFilteredData(filtered);
     setDateText(`Last ${dateRange === 365 ? "12 months" : `${dateRange} days`}`);
   }, [dateRange]);
+
 
   const stats = useMemo(() => {
     return filteredData.reduce(
@@ -163,40 +154,45 @@ export function Dashboard() {
   function getGroupedSalesData(data: any[], dateRange: number) {
     const now = dayjs();
     const startDate = now.subtract(dateRange, 'day');
-    
+
     // Filter data within date range
     const filtered = data.filter(item => dayjs(item.date).isAfter(startDate));
-    
+
+    // 365-day logic is fine
     if (dateRange === 365) {
-      // Group by every 2 months but pick only the first data point in each 2-month bucket
-    
       const buckets: Record<string, any> = {};
-    
+
       filtered.forEach(item => {
         const d = dayjs(item.date);
         const year = d.year();
-        const month = d.month(); // 0-based month
+        const month = d.month(); // 0-based
         const bucketMonth = Math.floor(month / 2) * 2;
         const bucketKey = dayjs(new Date(year, bucketMonth, 1)).format('YYYY-MM-DD');
-      
-        // Only store the first item encountered per bucket (earliest)
+
         if (!buckets[bucketKey]) {
           buckets[bucketKey] = item;
         }
       });
-    
+
       return Object.values(buckets).sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
-    } else {
-      // For 7, 30, 90 days - sample by step index
-    
-      let step = 1;
-      if (dateRange === 30) step = 5;
-      else if (dateRange === 90) step = 15;
-    
-      const sorted = filtered.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
-    
-      return sorted.filter((_, i) => i % step === 0);
     }
+
+    // For 7, 30, 90 days — group by date intervals
+    let step = 1;
+    if (dateRange === 30) step = 5;
+    else if (dateRange === 90) step = 15;
+
+    const groupedMap: Record<string, any> = {};
+
+    filtered.forEach(item => {
+      const d = dayjs(item.date);
+      const bucketDate = d.startOf('day').subtract(d.day() % step, 'day').format('YYYY-MM-DD');
+      if (!groupedMap[bucketDate]) {
+        groupedMap[bucketDate] = item;
+      }
+    });
+
+    return Object.values(groupedMap).sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
   }
 
   const groupedData = getGroupedSalesData(filteredData, dateRange);
@@ -245,6 +241,26 @@ export function Dashboard() {
     }
   ];
 
+  const topProducts = useMemo(() => {
+    const grouped: Record<string, { name: string; quantity: number; revenue: number }> = {};
+
+    filteredData.forEach(item => {
+      if (!grouped[item.product_name]) {
+        grouped[item.product_name] = {
+          name: item.product_name,
+          quantity: 0,
+          revenue: 0,
+        };
+      }
+
+      grouped[item.product_name].quantity += item.quantity_sold;
+      grouped[item.product_name].revenue += item.sales;
+    });
+
+    return Object.values(grouped)
+      .sort((a, b) => b.quantity - a.quantity) // or b.revenue - a.revenue
+      .slice(0, 10); // top 10 to allow slicing later
+  }, [filteredData]);
 
   return (
     <div className={`space-y-6 ${isMobileOptimized ? 'p-4' : ''}`}>
@@ -326,7 +342,7 @@ export function Dashboard() {
             </div>
           </div>
           <ResponsiveContainer width="100%" height={300}>
-            <LineChart data={getGroupedSalesData(filteredData, dateRange)}>
+            <LineChart data={groupedData}>
               <CartesianGrid strokeDasharray="3 3" stroke="#000000" />
               <XAxis 
                 dataKey="date" 
