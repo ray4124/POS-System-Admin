@@ -1,0 +1,162 @@
+[
+  {
+    "id": 1,
+    "branch_id": 1,
+    "brand_id": 1,
+    "name": "Product 1",
+    "price": 154,
+    "stock": 75
+  },
+  {
+    "id": 2,
+    "branch_id": 3,
+    "brand_id": 3,
+    "name": "Product 2",
+    "price": 244,
+    "stock": 62
+  },
+  {
+    "id": 3,
+    "branch_id": 2,
+    "brand_id": 1,
+    "name": "Product 3",
+    "price": 228,
+    "stock": 24
+  },
+  {
+    "id": 4,
+    "branch_id": 1,
+    "brand_id": 2,
+    "name": "Product 4",
+    "price": 240,
+    "stock": 54
+  },
+  {
+    "id": 5,
+    "branch_id": 2,
+    "brand_id": 2,
+    "name": "Product 5",
+    "price": 187,
+    "stock": 38
+  },
+  {
+    "id": 6,
+    "branch_id": 1,
+    "brand_id": 1,
+    "name": "Product 6",
+    "price": 108,
+    "stock": 22
+  },
+  {
+    "id": 7,
+    "branch_id": 3,
+    "brand_id": 1,
+    "name": "Product 7",
+    "price": 134,
+    "stock": 25
+  },
+  {
+    "id": 8,
+    "branch_id": 1,
+    "brand_id": 1,
+    "name": "Product 8",
+    "price": 204,
+    "stock": 81
+  },
+  {
+    "id": 9,
+    "branch_id": 1,
+    "brand_id": 3,
+    "name": "Product 9",
+    "price": 102,
+    "stock": 25
+  },
+  {
+    "id": 10,
+    "branch_id": 3,
+    "brand_id": 3,
+    "name": "Product 10",
+    "price": 137,
+    "stock": 60
+  },
+  {
+    "id": 11,
+    "branch_id": 3,
+    "brand_id": 3,
+    "name": "Product 11",
+    "price": 149,
+    "stock": 43
+  },
+  {
+    "id": 12,
+    "branch_id": 3,
+    "brand_id": 1,
+    "name": "Product 12",
+    "price": 213,
+    "stock": 116
+  },
+  {
+    "id": 13,
+    "branch_id": 1,
+    "brand_id": 2,
+    "name": "Product 13",
+    "price": 68,
+    "stock": 68
+  },
+  {
+    "id": 14,
+    "branch_id": 2,
+    "brand_id": 1,
+    "name": "Product 14",
+    "price": 153,
+    "stock": 71
+  },
+  {
+    "id": 15,
+    "branch_id": 3,
+    "brand_id": 1,
+    "name": "Product 15",
+    "price": 87,
+    "stock": 40
+  },
+  {
+    "id": 16,
+    "branch_id": 1,
+    "brand_id": 1,
+    "name": "Product 16",
+    "price": 112,
+    "stock": 84
+  },
+  {
+    "id": 17,
+    "branch_id": 2,
+    "brand_id": 2,
+    "name": "Product 17",
+    "price": 173,
+    "stock": 93
+  },
+  {
+    "id": 18,
+    "branch_id": 1,
+    "brand_id": 1,
+    "name": "Product 18",
+    "price": 137,
+    "stock": 66
+  },
+  {
+    "id": 19,
+    "branch_id": 1,
+    "brand_id": 2,
+    "name": "Product 19",
+    "price": 186,
+    "stock": 66
+  },
+  {
+    "id": 20,
+    "branch_id": 2,
+    "brand_id": 3,
+    "name": "Product 20",
+    "price": 101,
+    "stock": 72
+  }
+]
