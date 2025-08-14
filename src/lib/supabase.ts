@@ -5,7 +5,7 @@ const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || 'placeholder-k
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey)
 
-export type UserRole = 'owner' | 'admin' | 'manager' | 'cashier'
+export type UserRole = 'owner' | 'admin' | 'cashier'
 
 export interface Branch {
   id: string

@@ -1,6 +1,6 @@
 import React from 'react'
 import { useAuth } from '../contexts/AuthContext'
-import { LogOut, User, Store, BarChart3, Package, Users, Gift, Settings } from 'lucide-react'
+import { LogOut, User, Store, BarChart3, Package, Users, Gift } from 'lucide-react'
 import { clsx } from 'clsx'
 
 interface LayoutProps {
@@ -16,17 +16,10 @@ const navigationItems = {
   ],
   admin: [
     { id: 'dashboard', label: 'Dashboard', icon: BarChart3 },
+    { id: 'reports', label: 'Reports', icon: BarChart3 },
     { id: 'inventory', label: 'Inventory', icon: Package },
     { id: 'promotions', label: 'Promotions', icon: Gift },
     { id: 'employees', label: 'Employees', icon: Users },
-    { id: 'reports', label: 'Reports', icon: BarChart3 },
-    { id: 'settings', label: 'Settings', icon: Settings },
-  ],
-  manager: [
-    { id: 'dashboard', label: 'Dashboard', icon: BarChart3 },
-    { id: 'inventory', label: 'Inventory', icon: Package },
-    { id: 'promotions', label: 'Promotions', icon: Gift },
-    { id: 'reports', label: 'Reports', icon: BarChart3 },
   ],
   cashier: [
     { id: 'register', label: 'Register', icon: Store },

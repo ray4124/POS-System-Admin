@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, LineChart, Line, ResponsiveContainer } from 'recharts';
-import { Download, TrendingUp, FileText, DollarSign, ShoppingBag, Package, Receipt, TrendingDown, CalendarArrowDown } from 'lucide-react';
+import { Download, TrendingUp, DollarSign, ShoppingBag, Package, Receipt, TrendingDown, CalendarArrowDown } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import DatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
@@ -8,6 +8,8 @@ import transactions from '../mockdata/transactions.json';
 import transactionProducts from '../mockdata/transaction_products.json';
 import products from '../mockdata/products.json';
 import branch from '../mockdata/branches.json';
+import branch_brand from '../mockdata/branch_brand.json';
+import brands from '../mockdata/brands.json';
 import dayjs from 'dayjs';
 import isBetween from 'dayjs/plugin/isBetween';
 dayjs.extend(isBetween);
@@ -18,6 +20,7 @@ interface Product { id: number; name: string; price: number; stock: number; bran
 interface ProductSales {[ productId: number ]: number; }
 interface BranchPerformance {
   branch: string;
+  brand: string;
   sales: number;
   orders: number;
   customers: number;
@@ -25,13 +28,37 @@ interface BranchPerformance {
 
 export function Dashboard() {
   const { profile } = useAuth();
-  const [dateRange, setDateRange] = useState(30);
+  const [dateRange, setDateRange] = useState(7);
   const [dateText, setDateText] = useState(`Last ${dateRange} days`);
   const [filteredData, setFilteredData] = useState<{ date: string; sales: number; orders: number }[]>([]);
   const [HPD, setHPD] = useState(new Date(new Date().setDate(new Date().getDate() - 1)));
   const [hourlyData, setHourlyData] = useState<{ hour: string; sales: number; orders: number }[]>([]);
   const isMobileOptimized = profile?.role === 'owner'
-  
+  const [showHeader, setShowHeader] = useState(true);
+  const [lastScroll, setLastScroll] = useState(0);
+  const [atTop, setAtTop] = useState(true); // <-- new
+
+  useEffect(() => {
+    const scrollContainer = document.querySelector("main");
+    if (!scrollContainer) return;
+
+    const handleScroll = () => {
+      const scrollTop = scrollContainer.scrollTop;
+
+      setAtTop(scrollTop === 0); // track top position
+
+      if (scrollTop > lastScroll && scrollTop > 50) {
+        setShowHeader(false); // hide when scrolling down
+      } else if (scrollTop < lastScroll) {
+        setShowHeader(true); // show when scrolling up
+      }
+
+      setLastScroll(scrollTop);
+    };
+
+    scrollContainer.addEventListener("scroll", handleScroll);
+    return () => scrollContainer.removeEventListener("scroll", handleScroll);
+  }, [lastScroll]); 
 
   const StatCard = ({ title, value, icon: Icon, subtitle, color = 'primary' }: {
     title: string
@@ -390,51 +417,66 @@ export function Dashboard() {
       branchStats[t.branch_id].sales += transactionTotal;
       branchStats[t.branch_id].orders += 1;
     
-      // Customers = unique count of transactions (assuming one transaction per customer)
+      // Customers = unique transactions
       branchStats[t.branch_id].customers.add(t.id);
     });
-  
-    // Convert to array for table
-    return branch.map(b => ({
-      branch: b.name.replace(' Branch', ''), // clean up naming like your static example
-      sales: branchStats[b.id]?.sales || 0,
-      orders: branchStats[b.id]?.orders || 0,
-      customers: branchStats[b.id]?.customers.size || 0
-    })).sort((a, b) => b.sales - a.sales); // Sort by sales descending
+
+    // Convert to array with brand info
+    return branch.flatMap(b => {
+      const brandLinks = branch_brand.filter(bb => bb.branch_id === b.id);
+
+      return brandLinks.map(link => {
+        const brandName = brands.find(br => br.id === link.brand_id)?.name || "Unknown Brand";
+      
+        return {
+          branch: b.name.replace(' Branch', ''),
+          brand: brandName,
+          sales: branchStats[b.id]?.sales || 0,
+          orders: branchStats[b.id]?.orders || 0,
+          customers: branchStats[b.id]?.customers.size || 0
+        };
+      });
+    }).sort((a, b) => b.sales - a.sales);
   }
 
   return (
     <div className={`space-y-6 ${isMobileOptimized ? 'p-4' : ''}`}>
       {/* Header */}
-      <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
-        <div>
-          <h1 className="text-2xl lg:text-3xl font-bold text-gray-800">Dashboard</h1>
-          <p className="text-gray-500">Welcome back, {profile?.full_name}!</p>
-        </div>
-        
-        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
-          <select
-            value={dateRange}
-            onChange={(e) => setDateRange(Number(e.target.value))} // Cast to number
-            className="px-4 py-2 border border-[#1F2937] rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
-          >
-            <option value={7}>Last 7 days</option>
-            <option value={30}>Last 30 days</option>
-            <option value={90}>Last 90 days</option>
-            <option value={365}>Last year</option>
-          </select>
-          
-          <div className="flex gap-2">
-            <button
-              onClick={() => exportReport('excel')}
-              className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors"
+      <div
+        className={`sticky top-0 z-10 p-4 transition-transform duration-300
+        ${showHeader ? "translate-y-0" : "-translate-y-[120%]"}
+        ${atTop ? "bg-transparent shadow-none" : "bg-white shadow-md"}`}
+      >
+        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+          <div>
+            <h1 className="text-2xl lg:text-3xl font-bold text-gray-800">Dashboard</h1>
+            <p className="text-gray-500">Welcome back, {profile?.full_name}!</p>
+          </div>
+
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+            <select
+              value={dateRange}
+              onChange={(e) => setDateRange(Number(e.target.value))} // Cast to number
+              className="px-4 py-2 border border-[#1F2937] rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
             >
-              <Download className="h-4 w-4" />
-              Export
-            </button>
+              <option value={7}>Last 7 days</option>
+              <option value={30}>Last 30 days</option>
+              <option value={90}>Last 90 days</option>
+              <option value={365}>Last year</option>
+            </select>
+
+            <div className="flex gap-2">
+              <button
+                onClick={() => exportReport('excel')}
+                className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors"
+              >
+                <Download className="h-4 w-4" />
+                Export
+              </button>
+            </div>
           </div>
         </div>
-      </div>
+      </div>     
 
       {/* Key Metrics */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
@@ -567,21 +609,14 @@ export function Dashboard() {
               <h2 className="text-xl font-bold text-gray-800">Top Products</h2>
               <p className="text-sm text-gray-500">{dateText}</p>
             </div>
-            <button
-              onClick={() => exportReport('csv')}
-              className="text-primary hover:text-primary/80 text-sm flex items-center gap-1"
-            >
-              <Download className="h-4 w-4" />
-              Export
-            </button>
           </div>
           <div className="overflow-x-auto">
             <table className="w-full">
               <thead>
                 <tr className="border-b border-[#1F2937] text-left">
                   <th className="py-2 text-gray-800 font-semibold">Product</th>
-                  <th className="py-2 text-gray-800 font-semibold">Qty</th>
-                  <th className="py-2 text-gray-800 font-semibold">Revenue</th>
+                  <th className="py-2 text-gray-800 font-semibold text-center">Qty</th>
+                  <th className="py-2 text-gray-800 font-semibold text-center">Revenue</th>
                 </tr>
               </thead>
               <tbody>
@@ -597,8 +632,8 @@ export function Dashboard() {
                         {product.name}
                       </div>
                     </td>
-                    <td className="py-2 font-medium">{product.quantity}</td>
-                    <td className="py-2 font-bold text-primary">₱{product.revenue.toLocaleString()}</td>
+                    <td className="py-2 font-medium text-center">{product.quantity}</td>
+                    <td className="py-2 font-bold text-primary text-center">₱{product.revenue.toLocaleString()}</td>
                   </tr>
                 ))}
               </tbody>
@@ -638,10 +673,10 @@ export function Dashboard() {
             <thead>
               <tr className="border-b border-[#1F2937]">
                 <th className="text-left py-3 font-semibold text-gray-800">Branch</th>
-                <th className="text-left py-3 font-semibold text-gray-800">Sales</th>
-                <th className="text-left py-3 font-semibold text-gray-800">Orders</th>
-                <th className="text-left py-3 font-semibold text-gray-800">Customers</th>
-                <th className="text-left py-3 font-semibold text-gray-800">Avg. Order</th>
+                <th className="text-center py-3 font-semibold text-gray-800">Sales</th>
+                <th className="text-center py-3 font-semibold text-gray-800">Orders</th>
+                <th className="text-center py-3 font-semibold text-gray-800">Customers</th>
+                <th className="text-center py-3 font-semibold text-gray-800">Avg. Order</th>
               </tr>
             </thead>
             <tbody>
@@ -654,56 +689,17 @@ export function Dashboard() {
                       }`}>
                         {index + 1}
                       </span>
-                      {branch.branch}
+                      {branch.branch} - {branch.brand}
                     </div>
                   </td>
-                  <td className="py-3 font-bold text-primary">₱{branch.sales.toLocaleString()}</td>
-                  <td className="py-3 font-medium">{branch.orders}</td>
-                  <td className="py-3 font-medium">{branch.customers}</td>
-                  <td className="py-3 font-medium">₱{Math.round(branch.sales / branch.orders)}</td>
+                  <td className="py-3 font-bold text-primary text-center">₱{branch.sales.toLocaleString()}</td>
+                  <td className="py-3 font-medium text-center">{branch.orders}</td>
+                  <td className="py-3 font-medium text-center">{branch.customers}</td>
+                  <td className="py-3 font-medium text-center">₱{Math.round(branch.sales / branch.orders)}</td>
                 </tr>
               ))}
             </tbody>
           </table>
-        </div>
-      </div>
-
-      {/* Export Options */}
-      <div className="bg-white p-6 rounded-xl shadow-sm border border-brown-100">
-        <h2 className="text-xl font-bold text-brown-900 mb-4">Export Reports</h2>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <button 
-            onClick={() => exportReport('excel')}
-            className="flex items-center justify-center gap-3 p-4 border-2 border-dashed border-primary/30 rounded-lg hover:border-primary hover:bg-primary/5 transition-colors"
-          >
-            <FileText className="h-6 w-6 text-primary" />
-            <div className="text-left">
-              <p className="font-semibold text-brown-900">Excel Report</p>
-              <p className="text-sm text-brown-600">Detailed spreadsheet</p>
-            </div>
-          </button>
-          
-          <button 
-            onClick={() => exportReport('pdf')}
-            className="flex items-center justify-center gap-3 p-4 border-2 border-dashed border-secondary/30 rounded-lg hover:border-secondary hover:bg-secondary/5 transition-colors"
-          >
-            <FileText className="h-6 w-6 text-secondary" />
-            <div className="text-left">
-              <p className="font-semibold text-brown-900">PDF Report</p>
-              <p className="text-sm text-brown-600">Formatted document</p>
-            </div>
-          </button>
-          
-          <button 
-            onClick={() => exportReport('csv')}
-            className="flex items-center justify-center gap-3 p-4 border-2 border-dashed border-brown-300 rounded-lg hover:border-brown-500 hover:bg-brown-50 transition-colors"
-          >
-            <FileText className="h-6 w-6 text-brown-600" />
-            <div className="text-left">
-              <p className="font-semibold text-brown-900">CSV Export</p>
-              <p className="text-sm text-brown-600">Raw data file</p>
-            </div>
-          </button>
         </div>
       </div>
     </div>

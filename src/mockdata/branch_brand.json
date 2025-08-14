@@ -1,0 +1,8 @@
+[
+  { "id": 1, "branch_id": 1, "brand_id": 1 },
+  { "id": 2, "branch_id": 1, "brand_id": 2 },
+  { "id": 3, "branch_id": 2, "brand_id": 2 },
+  { "id": 4, "branch_id": 2, "brand_id": 3 },
+  { "id": 5, "branch_id": 3, "brand_id": 1 },
+  { "id": 6, "branch_id": 3, "brand_id": 3 }
+]

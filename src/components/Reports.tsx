@@ -1,61 +1,58 @@
-import { useState } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { XAxis, YAxis, CartesianGrid, Tooltip, LineChart, Line, PieChart, Pie, Cell, ResponsiveContainer } from 'recharts'
-import { TrendingUp, DollarSign, ShoppingBag, Users, AlertTriangle, Download } from 'lucide-react'
+import { TrendingUp, DollarSign, ShoppingBag, Users, Download, Package, TrendingDown } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
+import branches from '../mockdata/branches.json'
+import branchBrand from '../mockdata/branch_brand.json';
+import brands from '../mockdata/brands.json'
+import transactions from '../mockdata/transactions.json';
+import transactionProducts from '../mockdata/transaction_products.json';
+import products from '../mockdata/products.json';
+import dayjs from 'dayjs'
 
-interface DashboardStats {
-  totalSales: number
-  totalOrders: number
-  totalCustomers: number
-  lowStockItems: number
-  salesGrowth: number
-  ordersGrowth: number
-}
-
-const salesData = [
-  { date: 'Mon', sales: 12500 },
-  { date: 'Tue', sales: 15800 },
-  { date: 'Wed', sales: 18200 },
-  { date: 'Thu', sales: 16900 },
-  { date: 'Fri', sales: 22400 },
-  { date: 'Sat', sales: 28600 },
-  { date: 'Sun', sales: 25100 },
-]
-
-const categoryData = [
-  { name: 'Coffee', value: 45, color: '#38b6ff' },
-  { name: 'Food', value: 35, color: '#f48e1b' },
-  { name: 'Pastries', value: 20, color: '#fdf207' },
-]
-
-const topProducts = [
-  { name: 'Cappuccino', sales: 156, revenue: 18720 },
-  { name: 'Chicken Sandwich', sales: 89, revenue: 17355 },
-  { name: 'Iced Latte', sales: 134, revenue: 18090 },
-  { name: 'Caesar Salad', sales: 67, revenue: 11055 },
-  { name: 'Cheesecake', sales: 45, revenue: 6525 },
-]
 
 export function Reports() {
   const { profile } = useAuth()
-  const [stats, _] = useState<DashboardStats>({
-    totalSales: 139250,
-    totalOrders: 1247,
-    totalCustomers: 892,
-    lowStockItems: 8,
-    salesGrowth: 12.5,
-    ordersGrowth: 8.3
-  })
-  const [dateRange, setDateRange] = useState('7d')
-
+  const [dateRange, setDateRange] = useState(7)
+  const [dateText, setDateText] = useState(`Last ${dateRange} days`)
+  const [branchBrandId, setBranchBrandId] = useState(
+    branchBrand.length > 0 ? branchBrand[0].id : 0
+  );
   const isMobileOptimized = profile?.role === 'owner'
+  const [showHeader, setShowHeader] = useState(true);
+  const [lastScroll, setLastScroll] = useState(0);
+  const [atTop, setAtTop] = useState(true); // <-- new
+  const [filteredData, setFilteredData] = useState<any[]>([]);
 
-  const StatCard = ({ title, value, icon: Icon, growth, color = 'primary' }: {
+  useEffect(() => {
+    const scrollContainer = document.querySelector("main");
+    if (!scrollContainer) return;
+
+    const handleScroll = () => {
+      const scrollTop = scrollContainer.scrollTop;
+
+      setAtTop(scrollTop === 0); // track top position
+
+      if (scrollTop > lastScroll && scrollTop > 50) {
+        setShowHeader(false); // hide when scrolling down
+      } else if (scrollTop < lastScroll) {
+        setShowHeader(true); // show when scrolling up
+      }
+
+      setLastScroll(scrollTop);
+    };
+
+    scrollContainer.addEventListener("scroll", handleScroll);
+    return () => scrollContainer.removeEventListener("scroll", handleScroll);
+  }, [lastScroll]); 
+
+  const StatCard = ({ title, value, icon: Icon, growth, color = 'primary', dateIndicate }: {
     title: string
     value: string | number
     icon: any
     growth?: number
     color?: string
+    dateIndicate: string
   }) => (
     <div className="bg-white p-6 rounded-xl shadow-sm border border-brown-100 hover:shadow-md transition-all">
       <div className="flex items-center justify-between mb-4">
@@ -66,8 +63,11 @@ export function Reports() {
           <div className={`flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium ${
             growth >= 0 ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
           }`}>
-            <TrendingUp className="h-3 w-3" />
-            {growth > 0 ? '+' : ''}{growth}%
+            {growth >= 0 ?
+              <TrendingUp className="h-3 w-3" /> :
+              <TrendingDown className="h-3 w-3" />
+            }
+            {growth > 0 ? '+' : ''}{growth.toFixed(2)}%
           </div>
         )}
       </div>
@@ -75,34 +75,215 @@ export function Reports() {
         {typeof value === 'number' && title.includes('Sales') ? `₱${value.toLocaleString()}` : value}
       </h3>
       <p className="text-brown-600 text-sm">{title}</p>
+      <p className="text-brown-500 text-xs mt-1">{dateIndicate}</p>
     </div>
   )
+
+  useEffect(() => {
+    setDateText(`Last ${dateRange === 365 ? 'year' : `${dateRange} days`}`)
+  }, [dateRange])
+
+  function calculateGrowth(current: number, previous: number) {
+    if (previous === 0) return current > 0 ? 100 : 0;
+    return ((current - previous) / previous) * 100;
+  }
+
+  function filterTransactionsByBranchBrandAndDateRange(branchBrandId: number, startDate: Date, endDate: Date) {
+    return transactions.filter(t => {
+      const bb = branchBrand.find(bb => bb.branch_id === t.branch_id);
+      if (!bb) return false;
+
+      const tDate = new Date(t.date);
+      return bb.id === branchBrandId && tDate >= startDate && tDate <= endDate;
+    });
+  }
+
+  const {
+    totalSales,
+    salesGrowth,
+    productsSold,
+    productsGrowth,
+    totalTransactions,
+    transactionsGrowth,
+    totalInventory
+  } = useMemo(() => {
+    const now = new Date();
+
+    // Current range
+    const currentStart = new Date();
+    currentStart.setDate(now.getDate() - dateRange);
+    const currentTransactions = filterTransactionsByBranchBrandAndDateRange(branchBrandId, currentStart, now);
+
+    // Previous range
+    const prevEnd = new Date(currentStart);
+    prevEnd.setDate(currentStart.getDate() - 1);
+    const prevStart = new Date(prevEnd);
+    prevStart.setDate(prevEnd.getDate() - dateRange);
+    const previousTransactions = filterTransactionsByBranchBrandAndDateRange(branchBrandId, prevStart, prevEnd);
+
+    // --- Sales ---
+    const calcSales = (txList: any[]) => txList.reduce((sum, t) => {
+      const relatedProducts = transactionProducts.filter(tp => tp.transaction_id === t.id);
+      return sum + relatedProducts.reduce((pSum, tp) => {
+        const product = products.find(prod => prod.id === tp.product_id);
+        return pSum + (product ? product.price * tp.quantity : 0);
+      }, 0);
+    }, 0);
+
+    const totalSales = calcSales(currentTransactions);
+    const prevSales = calcSales(previousTransactions);
+    const salesGrowth = calculateGrowth(totalSales, prevSales);
+
+    // --- Products Sold ---
+    const calcProductsSold = (txList: any[]) => txList.reduce((sum, t) => {
+      const relatedProducts = transactionProducts.filter(tp => tp.transaction_id === t.id);
+      return sum + relatedProducts.reduce((pSum, tp) => pSum + tp.quantity, 0);
+    }, 0);
+
+    const productsSold = calcProductsSold(currentTransactions);
+    const prevProductsSold = calcProductsSold(previousTransactions);
+    const productsGrowth = calculateGrowth(productsSold, prevProductsSold);
+
+    // --- Transactions ---
+    const totalTransactions = currentTransactions.length;
+    const prevTransactions = previousTransactions.length;
+    const transactionsGrowth = calculateGrowth(totalTransactions, prevTransactions);
+
+    // --- Inventory ---
+    const totalInventory = products
+      .filter(p => {
+        const bb = branchBrand.find(bb =>
+          bb.branch_id === p.branch_id &&
+          bb.brand_id === p.brand_id
+        );
+        return bb?.id === branchBrandId;
+      })
+      .reduce((sum, p) => sum + p.stock, 0);
+
+    return {
+      totalSales,
+      salesGrowth,
+      productsSold,
+      productsGrowth,
+      totalTransactions,
+      transactionsGrowth,
+      totalInventory
+    };
+  }, [branchBrandId, dateRange, transactions, transactionProducts, products, branchBrand]);
+
+  // --- 1️⃣ Filter transactions & calculate daily sales ---
+  useEffect(() => {
+    const startDate = dayjs().subtract(dateRange - 1, "day").startOf("day");
+    const endDate = dayjs().endOf("day");
+
+    // Initialize daily buckets
+    const salesByDate: Record<string, { sales: number; orders: number }> = {};
+    for (let i = 0; i < dateRange; i++) {
+      const dayKey = startDate.add(i, "day").format("YYYY-MM-DD");
+      salesByDate[dayKey] = { sales: 0, orders: 0 };
+    }
+
+    // Filter transactions for selected branch-brand
+    const filteredTransactions = transactions.filter(t => {
+      const bb = branchBrand.find(bb => bb.branch_id === t.branch_id && bb.id === branchBrandId);
+      if (!bb) return false;
+      return dayjs(t.date).isBetween(startDate, endDate, null, "[]");
+    });
+
+    // Sum sales & orders per day
+    filteredTransactions.forEach(t => {
+      const tProducts = transactionProducts.filter(tp => tp.transaction_id === t.id);
+      const total = tProducts.reduce((sum, tp) => {
+        const product = products.find(p => p.id === tp.product_id);
+        return product ? sum + product.price * tp.quantity : sum;
+      }, 0);
+
+      const dateKey = dayjs(t.date).format("YYYY-MM-DD");
+      if (!salesByDate[dateKey]) salesByDate[dateKey] = { sales: 0, orders: 0 };
+      salesByDate[dateKey].sales += total;
+      salesByDate[dateKey].orders += 1;
+    });
+
+    // Convert to array
+    const dailyData = Object.entries(salesByDate).map(([date, { sales, orders }]) => ({
+      date,
+      sales,
+      orders
+    }));
+
+    setFilteredData(dailyData);
+  }, [dateRange, branchBrandId]);
+
+  // --- 2️⃣ Group data for chart points ---
+  function getGroupedSalesData(data: any[], dateRange: number) {
+    if (!data.length) return [];
+
+    let step = 1;
+    if (dateRange > 7) step = Math.ceil(dateRange / 6); // ~6 points
+
+    const grouped = data.filter((_, i) => i % step === 0);
+    if (dateRange === 7) return grouped.slice(0, 7);
+    if (dateRange === 365) return grouped.slice(0, 6); // yearly: limit to 6 points
+    return grouped.slice(0, 6); // 30 or 90 days
+  }
+
+  // --- 3️⃣ Prepare grouped data ---
+  const groupedData = getGroupedSalesData(filteredData, dateRange);
+
+  // --- 4️⃣ Calculate growth percentage ---
+  const salesChangePercent =
+    groupedData.length > 1 && groupedData[0].sales !== 0
+      ? ((groupedData[groupedData.length - 1].sales - groupedData[0].sales) /
+          groupedData[0].sales) *
+        100
+      : 0;
 
   return (
     <div className={`space-y-6 ${isMobileOptimized ? 'p-4' : ''}`}>
       {/* Header */}
-      <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
-        <div>
-          <h1 className="text-2xl lg:text-3xl font-bold text-brown-900">Analytics & Reports</h1>
-          <p className="text-brown-600">Comprehensive business insights and data analytics</p>
-        </div>
-        
-        <div className="flex items-center gap-3">
-          <select
-            value={dateRange}
-            onChange={(e) => setDateRange(e.target.value)}
-            className="px-4 py-2 border border-brown-200 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
-          >
-            <option value="1d">Today</option>
-            <option value="7d">Last 7 days</option>
-            <option value="30d">Last 30 days</option>
-            <option value="90d">Last 90 days</option>
-          </select>
-          
-          <button className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors">
-            <Download className="h-4 w-4" />
-            Export
-          </button>
+      <div
+        className={`sticky top-0 z-10 p-4 transition-transform duration-300
+        ${showHeader ? "translate-y-0" : "-translate-y-[120%]"}
+        ${atTop ? "bg-transparent shadow-none" : "bg-white shadow-md"}`}
+      >
+        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+          <div>
+            <h1 className="text-2xl lg:text-3xl font-bold text-brown-900">Analytics & Reports</h1>
+            <p className="text-brown-600">Comprehensive business insights and data analytics</p>
+          </div>
+
+          <div className="flex items-center gap-3">
+            <select
+              value={branchBrandId}
+              onChange={(e) => setBranchBrandId(Number(e.target.value))}
+              className="px-4 py-2 border border-brown-200 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
+            >
+              {branchBrand.map((bb) => {
+                const branchName = branches.find(b => b.id === bb.branch_id)?.name || `Branch ${bb.branch_id}`;
+                const brandName = brands.find(br => br.id === bb.brand_id)?.name || `Brand ${bb.brand_id}`;
+                return (
+                  <option key={bb.id} value={bb.id}>
+                    {branchName} - {brandName}
+                  </option>
+                );
+              })}
+            </select>
+            <select
+              value={dateRange}
+              onChange={(e) => setDateRange(Number(e.target.value))}
+              className="px-4 py-2 border border-brown-200 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
+            >
+              <option value={7}>Last 7 days</option>
+              <option value={30}>Last 30 days</option>
+              <option value={90}>Last 90 days</option>
+              <option value={365}>Last year</option>
+            </select>
+
+            <button className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors">
+              <Download className="h-4 w-4" />
+              Export
+            </button>
+          </div>
         </div>
       </div>
 
@@ -110,36 +291,53 @@ export function Reports() {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <StatCard
           title="Total Sales"
-          value={stats.totalSales}
+          value={`₱${totalSales.toLocaleString()}`}
           icon={DollarSign}
-          growth={stats.salesGrowth}
+          growth={salesGrowth}
+          dateIndicate={dateText}
         />
         <StatCard
-          title="Total Orders"
-          value={stats.totalOrders}
+          title="Product Sold"
+          value={productsSold.toLocaleString()}
           icon={ShoppingBag}
-          growth={stats.ordersGrowth}
+          growth={productsGrowth}
+          dateIndicate={dateText}
         />
         <StatCard
-          title="Total Customers"
-          value={stats.totalCustomers}
+          title="Total Transaction"
+          value={totalTransactions.toLocaleString()}
           icon={Users}
+          growth={transactionsGrowth}
+          dateIndicate={dateText}
         />
         <StatCard
-          title="Low Stock Items"
-          value={stats.lowStockItems}
-          icon={AlertTriangle}
-          color="error"
+          title="Total Inventory"
+          value={totalInventory.toLocaleString()}
+          icon={Package}
+          dateIndicate="Total stock of the branch"
         />
       </div>
 
       {/* Charts Section */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
         {/* Sales Trend */}
-        <div className="bg-white p-6 rounded-xl shadow-sm border border-brown-100">
-          <h2 className="text-xl font-bold text-brown-900 mb-4">Sales Trend</h2>
+        <div className="bg-white p-6 rounded-xl shadow-sm border border-brown-100 col-span-3">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-xl font-bold text-brown-900">Sales Trend</h2>
+            <div className="flex items-center gap-2" style={{ color: salesChangePercent >= 0 ? 'green' : 'red' }}>
+              {salesChangePercent >= 0 ? (
+                <TrendingUp className="h-4 w-4" />
+              ) : (
+                <TrendingDown className="h-4 w-4" />
+              )}
+              <span className="text-sm font-medium">
+                {salesChangePercent >= 0 ? '+' : ''}
+                {salesChangePercent.toFixed(1)}%
+              </span>
+            </div>
+          </div>
           <ResponsiveContainer width="100%" height={300}>
-            <LineChart data={salesData}>
+            <LineChart data={groupedData}>
               <CartesianGrid strokeDasharray="3 3" stroke="#efc282" />
               <XAxis dataKey="date" stroke="#932f17" />
               <YAxis stroke="#932f17" />
@@ -164,7 +362,7 @@ export function Reports() {
         {/* Sales by Category */}
         <div className="bg-white p-6 rounded-xl shadow-sm border border-brown-100">
           <h2 className="text-xl font-bold text-brown-900 mb-4">Sales by Category</h2>
-          <ResponsiveContainer width="100%" height={300}>
+          {/* <ResponsiveContainer width="100%" height={300}>
             <PieChart>
               <Pie
                 data={categoryData}
@@ -181,7 +379,7 @@ export function Reports() {
               </Pie>
               <Tooltip />
             </PieChart>
-          </ResponsiveContainer>
+          </ResponsiveContainer> */}
         </div>
       </div>
 
@@ -197,7 +395,7 @@ export function Reports() {
                 <th className="text-left py-3 px-4 font-semibold text-brown-800">Revenue</th>
               </tr>
             </thead>
-            <tbody>
+            {/* <tbody>
               {topProducts.map((product, index) => (
                 <tr key={product.name} className="border-b border-brown-100 hover:bg-background transition-colors">
                   <td className="py-3 px-4">
@@ -214,12 +412,12 @@ export function Reports() {
                   <td className="py-3 px-4 font-bold text-primary">₱{product.revenue.toLocaleString()}</td>
                 </tr>
               ))}
-            </tbody>
+            </tbody> */}
           </table>
         </div>
       </div>
 
-      {/* Low Stock Alert */}
+      {/* Low Stock Alert
       {stats.lowStockItems > 0 && (
         <div className="bg-error/10 border border-error/20 p-4 rounded-xl">
           <div className="flex items-center gap-3">
@@ -232,7 +430,7 @@ export function Reports() {
             </div>
           </div>
         </div>
-      )}
+      )} */}
     </div>
   )
 }

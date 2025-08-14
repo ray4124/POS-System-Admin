@@ -1,10 +1,10 @@
-import React, { useState } from 'react'
+import React, { useEffect, useState } from 'react'
 import { useAuth } from '../contexts/AuthContext'
 import { LogIn, AlertCircle } from 'lucide-react'
 
 export function LoginForm() {
-  const [email, setEmail] = useState('')
-  const [password, setPassword] = useState('')
+  const [email, setEmail] = useState('owner@afflatus.com')
+  const [password, setPassword] = useState('demo123')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
   const { signIn } = useAuth()
@@ -26,6 +26,25 @@ export function LoginForm() {
       setLoading(false)
     }
   }
+
+  useEffect(() => {
+    // Directly call the sign-in logic for demo auto-login
+    const autoSignIn = async () => {
+      setLoading(true)
+      setError('')
+      try {
+        const result = await signIn(email, password)
+        if (result?.error) {
+          setError(result.error.message || 'Failed to sign in.')
+        }
+      } catch (err: any) {
+        setError(err.message || 'An unexpected error occurred.')
+      } finally {
+        setLoading(false)
+      }
+    }
+    autoSignIn()
+  }, [])
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-brown-200 to-background flex items-center justify-center p-4">
