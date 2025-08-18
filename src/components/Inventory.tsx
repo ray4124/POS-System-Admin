@@ -8,7 +8,7 @@ import branchBrand from '../mockdata/branch_brand.json'
 
 interface Product {
   id: number;
-  name: string;
+  product_name: string;
   branch_id: number;
   brand_id: number;
   price: number;
@@ -32,9 +32,9 @@ export function Inventory() {
         .filter(p => p.stock <= p.alert_at) // low stock condition
         .sort((a, b) => a.stock - b.stock) // sort by stock ascending
         .map(p => {
-          const branch = branches.find(b => b.id === p.branch_id)?.name || 'Unknown Branch';
-          const brand = brands.find(br => br.id === p.brand_id)?.name || 'Unknown Brand';
-          return `${branch} - ${brand}: low stock of ${p.name} remaining ${p.stock}`;
+          const branch = branches.find(b => b.id === p.branch_id)?.branch_name || 'Unknown Branch';
+          const brand = brands.find(br => br.id === p.brand_id)?.brand_name || 'Unknown Brand';
+          return `${branch} - ${brand}: low stock of ${p.product_name} remaining ${p.stock}`;
         });
     }, []);
 
@@ -58,7 +58,7 @@ export function Inventory() {
     // Step 2: Search inside filtered products
     if (search.trim() !== "") {
       const term = search.toLowerCase()
-      result = result.filter((p) => p.name.toLowerCase().includes(term))
+      result = result.filter((p) => p.product_name.toLowerCase().includes(term))
     }
 
     // Step 3: Sort
@@ -127,8 +127,8 @@ export function Inventory() {
           >
             <option value={0}>All Products</option>
             {branchBrand.map((bb) => {
-              const branchName = branches.find(b => b.id === bb.branch_id)?.name || `Branch ${bb.branch_id}`;
-              const brandName = brands.find(br => br.id === bb.brand_id)?.name || `Brand ${bb.brand_id}`;
+              const branchName = branches.find(b => b.id === bb.branch_id)?.branch_name || `Branch ${bb.branch_id}`;
+              const brandName = brands.find(br => br.id === bb.brand_id)?.brand_name || `Brand ${bb.brand_id}`;
               return (
                 <option key={bb.id} value={bb.id}>
                   {branchName} - {brandName}
@@ -158,16 +158,16 @@ export function Inventory() {
             <tbody>
               {filteredProducts.map((p) => {
                 const branchName =
-                  branches.find((b) => b.id === p.branch_id)?.name ||
+                  branches.find((b) => b.id === p.branch_id)?.branch_name ||
                   `Branch ${p.branch_id}`
                 const brandName =
-                  brands.find((br) => br.id === p.brand_id)?.name ||
+                  brands.find((br) => br.id === p.brand_id)?.brand_name ||
                   `Brand ${p.brand_id}`
                 
                 return (
                   <tr key={p.id} className="border-b border-brown-100 hover:bg-background transition-colors">
                     <td className="py-3 px-4">
-                      <p className="font-medium text-brown-900">{p.name}</p>
+                      <p className="font-medium text-brown-900">{p.product_name}</p>
                     </td>
                     {filter === 0 && (
                       <td className="py-3 px-4">

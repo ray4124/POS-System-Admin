@@ -2,8 +2,6 @@ import { useState, useMemo } from 'react'
 import { Gift, Plus, Edit, Calendar, Percent, Tag, Clock, Trash2, Filter, Search, Cat } from 'lucide-react'
 import { clsx } from 'clsx'
 import promotions from '../mockdata/promotions.json'
-import promotionProducts from '../mockdata/promotion_Products.json'
-import products from '../mockdata/products.json'
 
 interface Promotion {
   id: string
@@ -11,12 +9,12 @@ interface Promotion {
   description: string
   type: 'percentage' | 'fixed' | 'bogo'
   value: number
-  startDate: string
-  endDate: string
-  startTimeFrame: string
-  endTimeFrame: string
+  start_date: string
+  end_date: string
+  start_time_frame: string
+  end_time_f: string
   minimunSpend: number
-  minimumItem: number
+  minimum_item: number
   products: string[]
 }
 
@@ -25,18 +23,18 @@ const useSegregatedPromotions = (promotions: any[]) => {
     const now = new Date();
 
     const ongoing = promotions.filter((p) => {
-      const start = new Date(p.startDate);
-      const end = new Date(p.endDate);
+      const start = new Date(p.start_date);
+      const end = new Date(p.end_date);
       return now >= start && now <= end;
     });
 
     const incoming = promotions.filter((p) => {
-      const start = new Date(p.startDate);
+      const start = new Date(p.start_date);
       return start > now;
     });
 
     const expired = promotions.filter((p) => {
-      const end = new Date(p.endDate);
+      const end = new Date(p.end_date);
       return end < now;
     });
 
@@ -173,7 +171,7 @@ export function Promotions() {
               <tbody>
                 {ongoing.map((promotion) => {
                   return (
-                    <tr key={promotion.id} className="border-b border-brown-100 hover:bg-background transition-colors">
+                    <tr key={promotion.id} className="relative group border-b border-brown-100 hover:bg-background transition-colors">
                       <td className="py-3 px-4">
                         <div className="flex items-center gap-3">
                           <div className={clsx("p-2 rounded-lg", getPromotionColor(promotion.type))}>
@@ -181,12 +179,16 @@ export function Promotions() {
                           </div>
                           <div>
                             <p className="font-medium text-brown-900">{promotion.name}</p>
-                            {(promotion.minimumSpend) && (
-                              <p className="text-xs text-brown-600">Min. purchase: ₱{promotion.minimumSpend}</p>
+                            {(promotion.minimum_spend) && (
+                              <p className="text-xs text-brown-600">Min. purchase: ₱{promotion.minimum_spend}</p>
                             )}
-                            {(promotion.minimumItem) && (
-                              <p className="text-xs text-brown-600">Min. items: {promotion.minimumItem}</p>
+                            {(promotion.minimum_item) && (
+                              <p className="text-xs text-brown-600">Min. items: {promotion.minimum_item}</p>
                             )}
+                            {/* Tooltip inside td */}
+                            <div className="absolute left-0 -top-8 hidden group-hover:block bg-brown-900 text-white text-xs rounded px-2 py-1 shadow-md z-10 whitespace-nowrap">
+                              {promotion.description || "No description"}
+                            </div>
                           </div>
                         </div>
                       </td>
@@ -203,23 +205,23 @@ export function Promotions() {
                       </td>
                       <td className="py-3 px-4 text-sm">
                         <div>
-                          <p>{new Date(promotion.startDate).toLocaleDateString()}</p>
-                          <p className="text-brown-600">to {new Date(promotion.endDate).toLocaleDateString()}</p>
+                          <p>{new Date(promotion.start_date).toLocaleDateString()}</p>
+                          <p className="text-brown-600">to {new Date(promotion.end_date).toLocaleDateString()}</p>
                         </div>
                       </td>
                       <td className="py-3 px-4">
                         <span className={clsx(
                           "px-2 py-1 text-xs rounded-full bg-green-100 text-green-800"
                         )}>
-                          {promotion.startTimeFrame && promotion.endTimeFrame ? (
+                          {promotion.start_time_frame && promotion.end_time_f ? (
                             <>
-                              {new Date(`1970-01-01T${promotion.startTimeFrame}`).toLocaleTimeString([], {
+                              {new Date(`1970-01-01T${promotion.start_time_frame}`).toLocaleTimeString([], {
                                 hour: "numeric",
                                 minute: "2-digit",
                                 hour12: true,
                               })}
                               {" - "}
-                              {new Date(`1970-01-01T${promotion.endTimeFrame}`).toLocaleTimeString([], {
+                              {new Date(`1970-01-01T${promotion.end_time_f}`).toLocaleTimeString([], {
                                 hour: "numeric",
                                 minute: "2-digit",
                                 hour12: true,
@@ -296,8 +298,8 @@ export function Promotions() {
                             {promotion.minimunSpend && (
                               <p className="text-xs text-brown-600">Min. purchase: ₱{promotion.minimunSpend}</p>
                             )}
-                            {promotion.minimumItem && (
-                              <p className="text-xs text-brown-600">Min. items: {promotion.minimumItem}</p>
+                            {promotion.minimum_item && (
+                              <p className="text-xs text-brown-600">Min. items: {promotion.minimum_item}</p>
                             )}
                           </div>
                         </div>
@@ -315,23 +317,23 @@ export function Promotions() {
                       </td>
                       <td className="py-3 px-4 text-sm">
                         <div>
-                          <p>{new Date(promotion.startDate).toLocaleDateString()}</p>
-                          <p className="text-brown-600">to {new Date(promotion.endDate).toLocaleDateString()}</p>
+                          <p>{new Date(promotion.start_date).toLocaleDateString()}</p>
+                          <p className="text-brown-600">to {new Date(promotion.end_date).toLocaleDateString()}</p>
                         </div>
                       </td>
                       <td className="py-3 px-4">
                         <span className={clsx(
                           "px-2 py-1 text-xs rounded-full bg-brown-100 text-brown-600"
                         )}>
-                          {promotion.startTimeFrame && promotion.endTimeFrame ? (
+                          {promotion.start_time_frame && promotion.end_time_f ? (
                             <>
-                              {new Date(`1970-01-01T${promotion.startTimeFrame}`).toLocaleTimeString([], {
+                              {new Date(`1970-01-01T${promotion.start_time_frame}`).toLocaleTimeString([], {
                                 hour: "numeric",
                                 minute: "2-digit",
                                 hour12: true,
                               })}
                               {" - "}
-                              {new Date(`1970-01-01T${promotion.endTimeFrame}`).toLocaleTimeString([], {
+                              {new Date(`1970-01-01T${promotion.end_time_f}`).toLocaleTimeString([], {
                                 hour: "numeric",
                                 minute: "2-digit",
                                 hour12: true,
@@ -345,12 +347,12 @@ export function Promotions() {
                       <td className="py-3 px-4">
                         <span className={clsx(
                           "px-2 py-1 text-xs rounded-full",
-                          new Date(promotion.endDate) < new Date() ? "bg-brown-100 text-brown-600" :
-                          new Date(promotion.startDate) > new Date() ? "bg-primary/10 text-primary" :
+                          new Date(promotion.end_date) < new Date() ? "bg-brown-100 text-brown-600" :
+                          new Date(promotion.start_date) > new Date() ? "bg-primary/10 text-primary" :
                           "bg-green-100 text-green-800"
                         )}>
-                          {new Date(promotion.endDate) < new Date() ? 'Expired' :
-                           new Date(promotion.startDate) > new Date() ? 'Upcoming' : 'Active'}
+                          {new Date(promotion.end_date) < new Date() ? 'Expired' :
+                           new Date(promotion.start_date) > new Date() ? 'Upcoming' : 'Active'}
                         </span>
                       </td>
                       <td className="py-3 px-4">

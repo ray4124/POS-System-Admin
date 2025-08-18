@@ -1,14 +1,14 @@
 [
   {
     "id": 1,
-    "name": "Brand 1"
+    "brand_name": "Brand 1"
   },
   {
     "id": 2,
-    "name": "Brand 2"
+    "brand_name": "Brand 2"
   },
   {
     "id": 3,
-    "name": "Brand 3"
+    "brand_name": "Brand 3"
   }
 ]

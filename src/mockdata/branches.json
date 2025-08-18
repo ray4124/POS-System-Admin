@@ -1,14 +1,14 @@
 [
   {
     "id": 1,
-    "name": "Main - Makati Branch"
+    "branch_name": "Main - Makati Branch"
   },
   {
     "id": 2,
-    "name": "BGC Branch"
+    "brand_name": "BGC Branch"
   },
   {
     "id": 3,
-    "name": "Ortigas Branch"
+    "brand_name": "Ortigas Branch"
   }
 ]
