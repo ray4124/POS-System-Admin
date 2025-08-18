@@ -1,7 +1,8 @@
-import React from 'react'
+import React, { useEffect, useState } from 'react'
 import { useAuth } from '../contexts/AuthContext'
 import { LogOut, User, Store, BarChart3, Package, Users, Gift } from 'lucide-react'
 import { clsx } from 'clsx'
+import products from '../mockdata/products.json'
 
 interface LayoutProps {
   children: React.ReactNode
@@ -28,11 +29,21 @@ const navigationItems = {
 
 export function Layout({ children, activeTab, onTabChange }: LayoutProps) {
   const { profile, signOut } = useAuth()
+  const [alert, setAlert] = useState(false);
   
   if (!profile) return null
 
   const userNavItems = navigationItems[profile.role] || []
   const isCashier = profile.role === 'cashier'
+
+  useEffect(() => {
+    for (const product of products) {
+      if (product.stock < product.alert_at) {
+        setAlert(true);
+        break; // stop checking after first alert
+      }
+    }
+  }, []);
 
   return (
     <div className={clsx(
@@ -82,7 +93,7 @@ export function Layout({ children, activeTab, onTabChange }: LayoutProps) {
                     key={item.id}
                     onClick={() => onTabChange?.(item.id)}
                     className={clsx(
-                      "w-full flex items-center space-x-3 px-4 py-3 rounded-lg text-left transition-all",
+                      "relative w-full flex items-center space-x-3 px-4 py-3 rounded-lg text-left transition-all",
                       activeTab === item.id
                         ? "bg-primary text-white shadow-md"
                         : "text-black hover:bg-secondary hover:text-gray-200"
@@ -90,6 +101,9 @@ export function Layout({ children, activeTab, onTabChange }: LayoutProps) {
                   >
                     <Icon className="h-5 w-5" />
                     <span className="font-medium">{item.label}</span>
+                    {(item.id === 'reports' || item.id === 'inventory') && alert && (
+                      <span className="absolute right-4 bg-red-500 text-white text-xs p-1.5 rounded-full" />
+                    )}
                   </button>
                 )
               })}

@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react'
-import { XAxis, YAxis, CartesianGrid, Tooltip, LineChart, Line, PieChart, Pie, Cell, ResponsiveContainer } from 'recharts'
-import { TrendingUp, DollarSign, ShoppingBag, Users, Download, Package, TrendingDown } from 'lucide-react'
+import { XAxis, YAxis, CartesianGrid, Tooltip, LineChart, Line, ResponsiveContainer } from 'recharts'
+import { TrendingUp, DollarSign, ShoppingBag, Users, Download, Package, TrendingDown, AlertTriangle } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
 import branches from '../mockdata/branches.json'
 import branchBrand from '../mockdata/branch_brand.json';
@@ -23,6 +23,7 @@ export function Reports() {
   const [lastScroll, setLastScroll] = useState(0);
   const [atTop, setAtTop] = useState(true); // <-- new
   const [filteredData, setFilteredData] = useState<any[]>([]);
+  const [activeTooltip, setActiveTooltip] = useState<number | null>(null);
 
   useEffect(() => {
     const scrollContainer = document.querySelector("main");
@@ -46,38 +47,75 @@ export function Reports() {
     return () => scrollContainer.removeEventListener("scroll", handleScroll);
   }, [lastScroll]); 
 
-  const StatCard = ({ title, value, icon: Icon, growth, color = 'primary', dateIndicate }: {
+  const lowStockList = useMemo(() => {
+    return products
+      .filter(p => p.stock <= p.alert_at) // low stock condition
+      .sort((a, b) => a.stock - b.stock) // sort by stock ascending
+      .map(p => {
+        const branch = branches.find(b => b.id === p.branch_id)?.name || 'Unknown Branch';
+        const brand = brands.find(br => br.id === p.brand_id)?.name || 'Unknown Brand';
+        return `${branch} - ${brand}: low stock of ${p.name} remaining ${p.stock}`;
+      });
+  }, []);
+
+  const StatCard = ({ title, value, icon: Icon, growth, color = 'primary', dateIndicate, tooltipId, activeTooltip, setActiveTooltip }: {
     title: string
     value: string | number
     icon: any
     growth?: number
     color?: string
     dateIndicate: string
-  }) => (
-    <div className="bg-white p-6 rounded-xl shadow-sm border border-brown-100 hover:shadow-md transition-all">
-      <div className="flex items-center justify-between mb-4">
-        <div className={`p-3 rounded-lg bg-${color}/10`}>
-          <Icon className={`h-6 w-6 text-${color === 'primary' ? 'primary' : color === 'error' ? 'error' : 'secondary'}`} />
-        </div>
-        {growth !== undefined && (
-          <div className={`flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium ${
-            growth >= 0 ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
-          }`}>
-            {growth >= 0 ?
-              <TrendingUp className="h-3 w-3" /> :
-              <TrendingDown className="h-3 w-3" />
-            }
-            {growth > 0 ? '+' : ''}{growth.toFixed(2)}%
+    tooltipId?: number
+    toolTipText?: string
+    activeTooltip?: number | null
+    setActiveTooltip?: (id: number | null) => void
+  }) => {
+    const showTooltip = activeTooltip === tooltipId;
+    return (
+      <div className="bg-white p-6 rounded-xl shadow-sm border border-brown-100 hover:shadow-md transition-all">
+        <div className="flex items-center justify-between mb-4">
+          <div className={`p-3 rounded-lg bg-${color}/10`}>
+            <Icon className={`h-6 w-6 text-${color === 'primary' ? 'primary' : color === 'error' ? 'error' : 'secondary'}`} />
           </div>
-        )}
+          {growth !== undefined && (
+            <div className={`relative flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium ${
+              growth >= 0 ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+              }`}
+              onMouseEnter={() => {
+                if (setActiveTooltip) setActiveTooltip(tooltipId ?? null);;
+              }}
+              onMouseLeave={() => {
+                if (setActiveTooltip) setActiveTooltip(null);
+              }}
+              onClick={() => {
+                if (setActiveTooltip) setActiveTooltip(showTooltip ? null : tooltipId ?? null);
+              }}
+            >
+              {growth >= 0 ?
+                <TrendingUp className="h-3 w-3" /> :
+                <TrendingDown className="h-3 w-3" />
+              }
+              {growth > 0 ? '+' : ''}{growth.toFixed(2)}%
+
+              {/* Tooltip for growth */}
+              {showTooltip && (
+                <div className="absolute top-7 w-40 bg-white border border-brown-200 rounded-lg p-2 shadow-lg z-10">
+                  <p className="text-sm text-brown-800">
+                    {growth >= 0 ? 'Growth' : 'Decline'} based on the previous period of {dateIndicate} for {title}.
+                  </p>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+        <h3 className="text-2xl font-bold text-brown-900 mb-1">
+          {typeof value === 'number' && title.includes('Sales') ? `₱${value.toLocaleString()}` : value}
+        </h3>
+        <p className="text-brown-600 text-sm">{title}</p>
+        <p className="text-brown-500 text-xs mt-1">{dateIndicate}</p>
       </div>
-      <h3 className="text-2xl font-bold text-brown-900 mb-1">
-        {typeof value === 'number' && title.includes('Sales') ? `₱${value.toLocaleString()}` : value}
-      </h3>
-      <p className="text-brown-600 text-sm">{title}</p>
-      <p className="text-brown-500 text-xs mt-1">{dateIndicate}</p>
-    </div>
-  )
+    )
+  }
 
   useEffect(() => {
     setDateText(`Last ${dateRange === 365 ? 'year' : `${dateRange} days`}`)
@@ -238,6 +276,46 @@ export function Reports() {
         100
       : 0;
 
+  const topProducts = useMemo(() => {
+    const startDate = dayjs().subtract(dateRange - 1, 'day').startOf('day');
+    const endDate = dayjs().endOf('day');
+
+    // Filter transactions
+    const filteredTransactions = transactions.filter(t => {
+      const bb = branchBrand.find(bb => bb.branch_id === t.branch_id && bb.id === branchBrandId);
+      if (!bb) return false;
+      return dayjs(t.date).isBetween(startDate, endDate, null, '[]');
+    });
+
+    // Aggregate sales
+    const productSalesMap: { [key: number]: { name: string; sales: number; revenue: number } } = {};
+
+    filteredTransactions.forEach(t => {
+      const tProducts = transactionProducts.filter(tp => tp.transaction_id === t.id);
+
+      tProducts.forEach(tp => {
+        const product = products.find(p => p.id === tp.product_id);
+        if (!product) return;
+
+        if (!productSalesMap[product.id]) {
+          productSalesMap[product.id] = {
+            name: product.name,
+            sales: 0,
+            revenue: 0
+          };
+        }
+
+        productSalesMap[product.id].sales += tp.quantity;
+        productSalesMap[product.id].revenue += product.price * tp.quantity;
+      });
+    });
+
+    // Sort & limit
+    return Object.values(productSalesMap)
+      .sort((a, b) => b.revenue - a.revenue)
+      .slice(0, 10) // Top 10 products
+  }, [branchBrandId, dateRange]);
+
   return (
     <div className={`space-y-6 ${isMobileOptimized ? 'p-4' : ''}`}>
       {/* Header */}
@@ -287,6 +365,23 @@ export function Reports() {
         </div>
       </div>
 
+      {/* Low Stock Alert */}
+      {lowStockList.length !== 0 && (
+        <div className="bg-error/10 border border-error/20 p-4 rounded-xl animate-pulse-soft">
+          <div className="flex items-center gap-3">
+            <AlertTriangle className="h-5 w-5 text-error" />
+            <div>
+              <h3 className="font-semibold text-error">Low Stock Alert</h3>
+              {lowStockList.map((item, index) => (
+                <p key={index} className="text-error/80 text-sm">
+                  {item}
+                </p>
+              ))}
+            </div>
+          </div>
+        </div>
+      )} 
+
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <StatCard
@@ -295,6 +390,9 @@ export function Reports() {
           icon={DollarSign}
           growth={salesGrowth}
           dateIndicate={dateText}
+          tooltipId={0}
+          activeTooltip={activeTooltip}
+          setActiveTooltip={setActiveTooltip}
         />
         <StatCard
           title="Product Sold"
@@ -302,6 +400,9 @@ export function Reports() {
           icon={ShoppingBag}
           growth={productsGrowth}
           dateIndicate={dateText}
+          tooltipId={1}
+          activeTooltip={activeTooltip}
+          setActiveTooltip={setActiveTooltip}
         />
         <StatCard
           title="Total Transaction"
@@ -309,6 +410,9 @@ export function Reports() {
           icon={Users}
           growth={transactionsGrowth}
           dateIndicate={dateText}
+          tooltipId={2}
+          activeTooltip={activeTooltip}
+          setActiveTooltip={setActiveTooltip}
         />
         <StatCard
           title="Total Inventory"
@@ -319,9 +423,9 @@ export function Reports() {
       </div>
 
       {/* Charts Section */}
-      <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+      <div>
         {/* Sales Trend */}
-        <div className="bg-white p-6 rounded-xl shadow-sm border border-brown-100 col-span-3">
+        <div className="bg-white p-6 rounded-xl shadow-sm border border-brown-100">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-xl font-bold text-brown-900">Sales Trend</h2>
             <div className="flex items-center gap-2" style={{ color: salesChangePercent >= 0 ? 'green' : 'red' }}>
@@ -339,7 +443,12 @@ export function Reports() {
           <ResponsiveContainer width="100%" height={300}>
             <LineChart data={groupedData}>
               <CartesianGrid strokeDasharray="3 3" stroke="#efc282" />
-              <XAxis dataKey="date" stroke="#932f17" />
+              <XAxis 
+                dataKey="date" 
+                stroke="#932f17"
+                tickFormatter={(value) => new Date(value).toLocaleDateString()}
+                padding={{left: 60, right: 60}}
+              />
               <YAxis stroke="#932f17" />
               <Tooltip 
                 contentStyle={{ 
@@ -358,34 +467,14 @@ export function Reports() {
             </LineChart>
           </ResponsiveContainer>
         </div>
-
-        {/* Sales by Category */}
-        <div className="bg-white p-6 rounded-xl shadow-sm border border-brown-100">
-          <h2 className="text-xl font-bold text-brown-900 mb-4">Sales by Category</h2>
-          {/* <ResponsiveContainer width="100%" height={300}>
-            <PieChart>
-              <Pie
-                data={categoryData}
-                cx="50%"
-                cy="50%"
-                outerRadius={100}
-                fill="#8884d8"
-                dataKey="value"
-                label={({ name, value }) => `${name}: ${value}%`}
-              >
-                {categoryData.map((entry, index) => (
-                  <Cell key={`cell-${index}`} fill={entry.color} />
-                ))}
-              </Pie>
-              <Tooltip />
-            </PieChart>
-          </ResponsiveContainer> */}
-        </div>
       </div>
 
       {/* Top Products */}
       <div className="bg-white p-6 rounded-xl shadow-sm border border-brown-100">
-        <h2 className="text-xl font-bold text-brown-900 mb-4">Top Selling Products</h2>
+        <h2 className="text-xl font-bold text-brown-900">Top Selling Products of {branches.find(b => b.id === branchBrandId)?.name || `Branch ${branchBrandId}`}</h2>
+        <p className="text-brown-600 mb-4">
+          The top products sold in the last {dateRange} days.
+        </p>
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead>
@@ -395,7 +484,7 @@ export function Reports() {
                 <th className="text-left py-3 px-4 font-semibold text-brown-800">Revenue</th>
               </tr>
             </thead>
-            {/* <tbody>
+            <tbody>
               {topProducts.map((product, index) => (
                 <tr key={product.name} className="border-b border-brown-100 hover:bg-background transition-colors">
                   <td className="py-3 px-4">
@@ -412,25 +501,10 @@ export function Reports() {
                   <td className="py-3 px-4 font-bold text-primary">₱{product.revenue.toLocaleString()}</td>
                 </tr>
               ))}
-            </tbody> */}
+            </tbody>
           </table>
         </div>
       </div>
-
-      {/* Low Stock Alert
-      {stats.lowStockItems > 0 && (
-        <div className="bg-error/10 border border-error/20 p-4 rounded-xl">
-          <div className="flex items-center gap-3">
-            <AlertTriangle className="h-5 w-5 text-error" />
-            <div>
-              <h3 className="font-semibold text-error">Low Stock Alert</h3>
-              <p className="text-error/80 text-sm">
-                {stats.lowStockItems} items are running low on stock. Check inventory for details.
-              </p>
-            </div>
-          </div>
-        </div>
-      )} */}
     </div>
   )
 }

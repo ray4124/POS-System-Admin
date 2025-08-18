@@ -3,7 +3,7 @@ import { useAuth } from '../contexts/AuthContext'
 import { LogIn, AlertCircle } from 'lucide-react'
 
 export function LoginForm() {
-  const [email, setEmail] = useState('owner@afflatus.com')
+  const [email, setEmail] = useState('admin@afflatus.com')
   const [password, setPassword] = useState('demo123')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
