@@ -1,10 +1,10 @@
-import React, { useEffect, useState } from 'react'
+import React, { useState } from 'react'
 import { useAuth } from '../contexts/AuthContext'
 import { LogIn, AlertCircle } from 'lucide-react'
 
 export function LoginForm() {
-  const [email, setEmail] = useState('admin@afflatus.com')
-  const [password, setPassword] = useState('demo123')
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
   const { signIn } = useAuth()
@@ -27,24 +27,24 @@ export function LoginForm() {
     }
   }
 
-  useEffect(() => {
-    // Directly call the sign-in logic for demo auto-login
-    const autoSignIn = async () => {
-      setLoading(true)
-      setError('')
-      try {
-        const result = await signIn(email, password)
-        if (result?.error) {
-          setError(result.error.message || 'Failed to sign in.')
-        }
-      } catch (err: any) {
-        setError(err.message || 'An unexpected error occurred.')
-      } finally {
-        setLoading(false)
-      }
-    }
-    autoSignIn()
-  }, [])
+  // useEffect(() => {
+  //   // Directly call the sign-in logic for demo auto-login
+  //   const autoSignIn = async () => {
+  //     setLoading(true)
+  //     setError('')
+  //     try {
+  //       const result = await signIn(email, password)
+  //       if (result?.error) {
+  //         setError(result.error.message || 'Failed to sign in.')
+  //       }
+  //     } catch (err: any) {
+  //       setError(err.message || 'An unexpected error occurred.')
+  //     } finally {
+  //       setLoading(false)
+  //     }
+  //   }
+  //   autoSignIn()
+  // }, [])
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-brown-200 to-background flex items-center justify-center p-4">
@@ -109,7 +109,6 @@ export function LoginForm() {
           <div className="text-sm text-brown-800/70 space-y-1">
             <p><strong>Owner:</strong> owner@afflatus.com</p>
             <p><strong>Admin:</strong> admin@afflatus.com</p>
-            <p><strong>Manager:</strong> manager@afflatus.com</p>
             <p><strong>Cashier:</strong> cashier@afflatus.com</p>
             <p className="text-xs mt-2 italic text-primary font-semibold">Password: demo123 for all accounts</p>
             <p className="text-xs mt-1 text-brown-600">

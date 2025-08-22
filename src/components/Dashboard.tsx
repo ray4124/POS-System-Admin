@@ -4,39 +4,80 @@ import { Download, TrendingUp, DollarSign, ShoppingBag, Package, Receipt, Trendi
 import { useAuth } from '../contexts/AuthContext';
 import DatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
-import transactions from '../mockdata/transactions.json';
-import transactionProducts from '../mockdata/transaction_products.json';
-import products from '../mockdata/products.json';
-import branch from '../mockdata/branches.json';
-import branch_brand from '../mockdata/branch_brand.json';
-import brands from '../mockdata/brands.json';
+import { 
+  getBranches,
+  Branch,
+  getBrands,
+  Brand,
+  getBranchBrands,
+  BranchBrand,
+  getTransactions,
+  Transaction,
+  getTransactionProducts,
+  TransactionProduct
+} from '../api/staticAPI';
+import { getProducts, Product } from '../api/productAPI';
 import dayjs from 'dayjs';
 import isBetween from 'dayjs/plugin/isBetween';
 dayjs.extend(isBetween);
 
-interface Transaction { id: number; branch_id?: number; date: string; pay_method?: string; }
-interface TP { transaction_id: number; product_id: number; quantity: number; price: number; }
-interface Product { id: number; name: string; price: number; stock: number; branch_id?: number; brand_id?: number; }
+
 interface ProductSales {[ productId: number ]: number; }
-interface BranchPerformance {
-  branch: string;
-  brand: string;
+interface BranchBrandPerformance {
+  branch_id: number;
+  brand_id: number;
   sales: number;
   orders: number;
   customers: number;
 }
 
 export function Dashboard() {
+  // states for API data
+  const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [transactionProducts, setTransactionProducts] = useState<TransactionProduct[]>([]);
+  const [branches, setBranches] = useState<Branch[]>([]);
+  const [brands, setBrands] = useState<Brand[]>([]);
+  const [branchBrands, setBranchBrands] = useState<BranchBrand[]>([]);
+  const [products, setProducts] = useState<Product[]>([]);
+
+  // Const for page functionality
   const { profile } = useAuth();
   const [dateRange, setDateRange] = useState(7);
   const [dateText, setDateText] = useState(`Last ${dateRange} days`);
   const [filteredData, setFilteredData] = useState<{ date: string; sales: number; orders: number }[]>([]);
   const [HPD, setHPD] = useState(new Date(new Date().setDate(new Date().getDate() - 1)));
   const [hourlyData, setHourlyData] = useState<{ hour: string; sales: number; orders: number }[]>([]);
-  const isMobileOptimized = profile?.role === 'owner'
+  const isMobileOptimized = profile?.role === 'Owner'
   const [showHeader, setShowHeader] = useState(true);
   const [lastScroll, setLastScroll] = useState(0);
   const [atTop, setAtTop] = useState(true); // <-- new
+
+  useEffect(() => {
+    // Fetch all data in parallel
+    const fetchData = async () => {
+      try {
+        const [branchesData, brandsData, branchBrandData, transactionsData, transactionProductsData, productsData] = await Promise.all([
+          getBranches(),
+          getBrands(),
+          getBranchBrands(),
+          getTransactions(),
+          getTransactionProducts(),
+          getProducts()
+        ]);
+
+        setBranches(branchesData);
+        setBrands(brandsData);
+        setBranchBrands(branchBrandData);
+        setTransactions(transactionsData);
+        setTransactionProducts(transactionProductsData);
+        setProducts(productsData);
+      } catch (error) {
+        console.error("Error fetching data:", error);
+      }
+    };
+
+    fetchData();
+  }, []);
 
   useEffect(() => {
     const scrollContainer = document.querySelector("main");
@@ -87,97 +128,155 @@ export function Dashboard() {
   }
 
   const stats = useMemo(() => {
-    setDateText(`Last ${dateRange === 365 ? 'year' : `${dateRange} days`} `);
-    // date range window: from start (inclusive) to now
-    const start = dayjs().subtract(dateRange, 'day').startOf('day').valueOf();
-    const end = dayjs().endOf('day').valueOf();
+    setDateText(`Last ${dateRange === 365 ? "year" : `${dateRange} days`} `);
 
-    // 1) transactions inside the date range
-    const txInRange: Transaction[] = (transactions as Transaction[]).filter(tx => {
-      const t = dayjs(tx.date).valueOf();
-      return t >= start && t <= end;
+    // date range window
+    const start = dayjs().subtract(dateRange, "day").startOf("day").valueOf();
+    const end = dayjs().endOf("day").valueOf();
+
+    // 1) transactions inside the date range AND with status Completed
+    const txInRange: Transaction[] = (transactions as Transaction[]).filter((tx) => {
+      const t = dayjs(tx.created_at).valueOf();
+      return (
+        t >= start &&
+        t <= end &&
+        tx.status === "Completed" // ✅ only include completed
+      );
     });
 
     // 2) unique transaction ids in range
-    const txIds = new Set(txInRange.map(t => t.id));
+    const txIds = new Set(txInRange.map((t) => t.id));
 
     // 3) transaction products belonging to those transactions
-    const tpsInRange: TP[] = (transactionProducts as TP[]).filter(tp => txIds.has(tp.transaction_id));
+    const tpsInRange: TransactionProduct[] = (transactionProducts as TransactionProduct[]).filter((tp) =>
+      txIds.has(tp.transaction_id)
+    );
 
-    // 4) total revenue = sum(quantity * price) across those TP rows
-    const totalRevenue = tpsInRange.reduce((sum, tp) => sum + (tp.quantity * (tp.price ?? 0)), 0);
+    // 4) total revenue = SUM of net_amount (instead of TP calc)
+    const totalRevenue = txInRange.reduce(
+      (sum, tx) => sum + (tx.net_amount ?? 0),
+      0
+    );
 
-    // 5) total products sold = sum(quantity)
-    const totalProductsSold = tpsInRange.reduce((sum, tp) => sum + tp.quantity, 0);
+    // 5) total products sold = sum(quantity) across TP
+    const totalProductsSold = tpsInRange.reduce(
+      (sum, tp) => sum + tp.quantity,
+      0
+    );
 
-    // 6) total transactions = number of unique transactions in range
+    // 6) total transactions = number of completed transactions in range
     const totalTransactions = txInRange.length;
 
     // 7) total inventory = sum of stock for all products (regardless of date)
-    const totalInventory = (products as Product[]).reduce((sum, p) => sum + (p.stock ?? 0), 0);
+    const totalInventory = (products as Product[]).reduce(
+      (sum, p) => sum + (p.stock ?? 0),
+      0
+    );
 
-    // Optionally compute payment method split from transactions (if needed)
+    // 8) Payment method breakdown
     const paymentCounts: Record<string, number> = {};
     const paymentSales: Record<string, number> = {};
-    txInRange.forEach(tx => {
-      const method = tx.pay_method ?? 'Unknown';
+    txInRange.forEach((tx) => {
+      const method = tx.payment_method ?? "Unknown";
       paymentCounts[method] = (paymentCounts[method] || 0) + 1;
+      paymentSales[method] = (paymentSales[method] || 0) + (tx.net_amount ?? 0);
     });
+
     return {
-      sales: totalRevenue,
+      sales: totalRevenue, // ✅ now net total
       sold: totalProductsSold,
       transactions: totalTransactions,
       inventory: totalInventory,
       paymentCounts,
-      paymentSales
+      paymentSales,
     };
   }, [dateRange, transactions, transactionProducts, products]);
 
   useEffect(() => {
-    // Step 1: Filter transactions within date range
-    const startDate = dayjs().subtract(dateRange - 1, 'day').startOf('day');
-    const endDate = dayjs().endOf('day');
+    const startDate = dayjs().subtract(dateRange - 1, "day").startOf("day");
+    const endDate = dayjs().endOf("day");
 
-    const filteredTransactions = transactions.filter(t =>
-      dayjs(t.date).isBetween(startDate, endDate, null, '[]')
+    // Step 1: Filter only transactions in date range + completed ones
+    const filteredTransactions = transactions.filter(
+      (t) =>
+        t.status === "Completed" &&
+        dayjs(t.created_at).isBetween(startDate, endDate, null, "[]")
     );
 
-    // Step 2: Map transaction IDs to their products and calculate sales
-    const salesByDate: Record<string, { sales: number; orders: number }> = {};
+    const validTransactionIds = new Set(filteredTransactions.map((t) => t.id));
 
-    filteredTransactions.forEach(t => {
-      // Get all products from this transaction
-      const tProducts = transactionProducts.filter(tp => tp.transaction_id === t.id);
+    // Step 2: Aggregate sales per day, per branch, per brand
+    type SalesStat = { sales: number; orders: Set<number> };
+    const salesByDate: Record<
+      string,
+      Record<string, SalesStat>
+    > = {}; 
+    // Example: salesByDate["2025-08-20"]["1-3"] = { sales: 1200, orders: Set(2) }
 
-      // Calculate total sales for this transaction
-      const transactionTotal = tProducts.reduce((sum, tp) => {
-        return sum + tp.price * tp.quantity;
-      }, 0);
+    transactionProducts.forEach((tp) => {
+      if (!validTransactionIds.has(tp.transaction_id)) return;
 
-      const dateKey = dayjs(t.date).format("YYYY-MM-DD");
+      const product = products.find((p) => p.id === tp.product_id);
+      if (!product) return;
 
-      if (!salesByDate[dateKey]) {
-        salesByDate[dateKey] = { sales: 0, orders: 0 };
+      const branchBrand = branchBrands.find((bb) => bb.id === product.branch_brand_id);
+      if (!branchBrand) return;
+
+      const dateKey = dayjs(
+        filteredTransactions.find((t) => t.id === tp.transaction_id)?.created_at
+      ).format("YYYY-MM-DD");
+
+      const branchBrandKey = `${branchBrand.branch_id}-${branchBrand.brand_id}`;
+
+      if (!salesByDate[dateKey]) salesByDate[dateKey] = {};
+      if (!salesByDate[dateKey][branchBrandKey]) {
+        salesByDate[dateKey][branchBrandKey] = { sales: 0, orders: new Set() };
       }
 
-      salesByDate[dateKey].sales += transactionTotal;
-      salesByDate[dateKey].orders += 1;
+      // Add sales (subtotal from schema)
+      salesByDate[dateKey][branchBrandKey].sales += tp.subtotal;
+      // Track orders per transaction (avoid double counting)
+      salesByDate[dateKey][branchBrandKey].orders.add(tp.transaction_id);
     });
 
-    // Step 3: Fill missing days in range (important for charts)
-    const chartData: { date: string; sales: number; orders: number }[] = [];
+    // Step 3: Build chart data, filling missing days
+    const chartData: {
+      date: string;
+      branch_id: number;
+      brand_id: number;
+      sales: number;
+      orders: number;
+    }[] = [];
+
     for (let i = 0; i < dateRange; i++) {
-      const currentDate = startDate.add(i, 'day').format("YYYY-MM-DD");
-      chartData.push({
-        date: currentDate,
-        sales: salesByDate[currentDate]?.sales || 0,
-        orders: salesByDate[currentDate]?.orders || 0
-      });
+      const currentDate = startDate.add(i, "day").format("YYYY-MM-DD");
+
+      if (salesByDate[currentDate]) {
+        Object.entries(salesByDate[currentDate]).forEach(([key, val]) => {
+          const [branch_id, brand_id] = key.split("-").map(Number);
+          chartData.push({
+            date: currentDate,
+            branch_id,
+            brand_id,
+            sales: val.sales,
+            orders: val.orders.size,
+          });
+        });
+      } else {
+        // no sales on this day = still push (good for charts)
+        chartData.push({
+          date: currentDate,
+          branch_id: 0, // or null if you want
+          brand_id: 0,
+          sales: 0,
+          orders: 0,
+        });
+      }
     }
 
-    // Step 4: Set the state
     setFilteredData(chartData);
-  }, [dateRange]);
+  }, [dateRange, transactions, transactionProducts, products, branchBrands]);
+
 
   function getGroupedSalesData(data: any[], dateRange: number) {
     const now = dayjs();
@@ -232,62 +331,64 @@ export function Dashboard() {
   
   useEffect(() => {
     if (!HPD) return;
-    
-    // Only run if date is between yesterday and 31 days ago
-    const yesterday = dayjs().subtract(1, 'day').endOf('day');
-    const minDate = dayjs().subtract(31, 'day').startOf('day');
-    const selectedDate = dayjs(HPD).startOf('day');
-    
+  
+    // Step 1: Validate selected date (only yesterday to 31 days ago allowed)
+    const yesterday = dayjs().subtract(1, "day").endOf("day");
+    const minDate = dayjs().subtract(31, "day").startOf("day");
+    const selectedDate = dayjs(HPD).startOf("day");
+  
     if (selectedDate.isAfter(yesterday) || selectedDate.isBefore(minDate)) {
       setHourlyData([]);
       return;
     }
   
-    // Filter only transactions for that day
-    const dayTransactions = transactions.filter(t =>
-      dayjs(t.date).isSame(selectedDate, 'day')
+    // Step 2: Filter only completed transactions for that day
+    const dayTransactions = transactions.filter(
+      t =>
+        t.status === "Completed" &&
+        dayjs(t.created_at).isSame(selectedDate, "day")
     );
   
-    // Create an object for hours 0-23
+    // Step 3: Initialize only 10AM to 10PM
     const hourly: Record<string, { sales: number; orders: number }> = {};
-    for (let h = 0; h < 24; h++) {
-      const hourKey = String(h).padStart(2, '0'); // "01", "13"
-      hourly[hourKey] = { sales: 0, orders: 0 };
+    for (let h = 10; h <= 22; h++) {
+      hourly[String(h).padStart(2, "0")] = { sales: 0, orders: 0 };
     }
   
-    // Process each transaction
+    // Step 4: Process transactions (only if inside 10AM–10PM)
     dayTransactions.forEach(t => {
-      const hour = dayjs(t.date).hour();
-      const hourKey = String(hour).padStart(2, '0');
+      const hour = dayjs(t.created_at).hour();
+      if (hour < 10 || hour > 22) return; // skip outside range
+    
+      const hourKey = String(hour).padStart(2, "0");
     
       // Get products for this transaction
-      const tProducts = transactionProducts.filter(tp => tp.transaction_id === t.id);
+      const tProducts = transactionProducts.filter(
+        tp => tp.transaction_id === t.id
+      );
     
-      const transactionTotal = tProducts.reduce((sum, tp) => {
-        return sum + tp.price * tp.quantity;
-      }, 0);
+      // Use subtotal instead of price*qty
+      const transactionTotal = tProducts.reduce((sum, tp) => sum + tp.subtotal, 0);
     
       hourly[hourKey].sales += transactionTotal;
       hourly[hourKey].orders += 1;
     });
   
-    // Convert to array for chart
-    const chartData = Object.keys(hourly).map(hour => {
-      const hourNum = parseInt(hour, 10);
-      // Format hour as "HH:00"
-      var hourFormatted = hourNum > 12 ? `${hourNum - 12} PM` : `${hourNum} AM`;
-      if (hourNum === 0) hourFormatted = '12 AM'; // midnight
-      if (hourNum === 12) hourFormatted = '12 PM';
-      // Return formatted data for chart 
-      return ({
-        hour: hourFormatted,
-        sales: hourly[hour].sales,
-        orders: hourly[hour].orders
-      })
-    }); 
-  
+    // Step 5: Convert to array & format hours
+    const chartData = Object.keys(hourly)
+      .sort((a, b) => Number(a) - Number(b)) // ensure order
+      .map(hour => {
+        const h = Number(hour);
+        let label = `${h % 12 || 12} ${h < 12 ? "AM" : "PM"}`; // 10→10AM, 12→12PM, 22→10PM
+        return {
+          hour: label,
+          sales: hourly[hour].sales,
+          orders: hourly[hour].orders,
+        };
+      });
+    
     setHourlyData(chartData);
-  }, [HPD]);
+  }, [HPD, transactions, transactionProducts]);
 
   const productSales: ProductSales = {};
 
@@ -300,43 +401,49 @@ export function Dashboard() {
   });
 
   // Convert to array with product names
-  function getTopProducts(days: number) {
+  function getTopProducts(
+    days: number,
+    transactions: Transaction[],
+    transactionProducts: TransactionProduct[],
+    products: Product[]
+  ) {
     const today = new Date();
-    const startDate = new Date();
-    // yesterday as end date
     const endDate = new Date(today);
-    endDate.setDate(endDate.getDate() - 1);
-    // start date = endDate - (days - 1)
-    startDate.setDate(endDate.getDate() - (days - 1));
+    endDate.setDate(endDate.getDate() - 1); // yesterday
+    const startDate = new Date(endDate);
+    startDate.setDate(endDate.getDate() - (days - 1)); // days range
 
-    // filter transactions in range
-    const filteredTransactions = (transactions as Transaction[]).filter((t) => {
-      const tDate = new Date(t.date);
-      return tDate >= startDate && tDate <= endDate;
+    // 1. Filter transactions in range & only completed ones
+    const filteredTransactions = transactions.filter((t) => {
+      const tDate = new Date(t.created_at);
+      return (
+        t.status === "Completed" &&
+        tDate >= startDate &&
+        tDate <= endDate
+      );
     });
 
     const transactionIds = new Set(filteredTransactions.map((t) => t.id));
 
-    // sum quantities per product
+    // 2. Sum quantities per product
     const productQuantities: Record<number, number> = {};
-    (transactionProducts as TP[]).forEach((tp) => {
+    transactionProducts.forEach((tp) => {
       if (transactionIds.has(tp.transaction_id)) {
         productQuantities[tp.product_id] =
           (productQuantities[tp.product_id] || 0) + tp.quantity;
       }
     });
 
-    // join with product data
+    // 3. Join with product data
     const result = Object.entries(productQuantities)
       .map(([productId, quantity]) => {
-        const product = (products as Product[]).find(
-          (p) => p.id === Number(productId)
-        );
+        const product = products.find((p) => p.id === Number(productId));
         return {
           id: product?.id || Number(productId),
-          name: product?.name || 'Unknown',
+          name: product?.product_name || "Unknown",
+          category: product?.category || "Uncategorized",
           quantity,
-          revenue: (product?.price || 0) * quantity
+          revenue: (product?.price || 0) * quantity,
         };
       })
       .sort((a, b) => b.quantity - a.quantity);
@@ -354,15 +461,15 @@ export function Dashboard() {
     endDate.setDate(today.getDate() - 1);
     
     const filteredTransactions: Transaction[] = transactions.filter(t => {
-      const tDate = new Date(t.date);
+      const tDate = new Date(t.created_at);
       return tDate >= startDate && tDate <= endDate;
     });
   
     const paymentSales: Record<string, number> = {};
   
     filteredTransactions.forEach(t => {
-      if (!t.pay_method) return;
-      paymentSales[t.pay_method] = (paymentSales[t.pay_method] || 0) + 1;
+      if (!t.payment_method) return;
+      paymentSales[t.payment_method] = (paymentSales[t.payment_method] || 0) + 1;
     });
   
     const totalSales = Object.values(paymentSales).reduce((sum, val) => sum + val, 0);
@@ -387,57 +494,87 @@ export function Dashboard() {
     ];
   }
 
-  function getBranchPerformance(dateRangeDays: number): BranchPerformance[] {
+  function getBranchBrandPerformance(
+    dateRangeDays: number,
+    transactions: Transaction[],
+    transactionProducts: TransactionProduct[],
+    products: Product[],
+    branchBrands: BranchBrand[]
+  ): BranchBrandPerformance[] {
     const today = new Date();
     const startDate = new Date(today);
     startDate.setDate(today.getDate() - dateRangeDays);
-    
+
     const endDate = new Date(today);
     endDate.setDate(today.getDate() - 1);
 
-    // Filter transactions by date range
-    const filteredTransactions: Transaction[] = transactions.filter(t => {
-      const tDate = new Date(t.date);
-      return tDate >= startDate && tDate <= endDate;
+    // Only completed transactions within date range
+    const validTransactions = transactions.filter(t => {
+      const tDate = new Date(t.created_at);
+      return (
+        t.status === "Completed" &&
+        tDate >= startDate &&
+        tDate <= endDate
+      );
     });
 
-    // Map for branch-level aggregation
-    const branchStats: Record<number, { sales: number; orders: number; customers: Set<number> }> = {};
+    const validTransactionIds = new Set(validTransactions.map(t => t.id));
 
-    filteredTransactions.forEach(t => {
-      if (typeof t.branch_id === 'undefined') return;
-      if (!branchStats[t.branch_id]) {
-        branchStats[t.branch_id] = { sales: 0, orders: 0, customers: new Set() };
+    // Map for branch-brand aggregation
+    const stats: Record<string, { sales: number; orders: Set<number>; customers: Set<number> }> = {};
+
+    // Traverse transaction_products
+    transactionProducts.forEach(tp => {
+      if (!validTransactionIds.has(tp.transaction_id)) return;
+
+      const product = products.find(p => p.id === tp.product_id);
+      if (!product) return;
+
+      const branchBrand = branchBrands.find(bb => bb.id === product.branch_brand_id);
+      if (!branchBrand) return;
+
+      const key = `${branchBrand.branch_id}-${branchBrand.brand_id}`;
+      if (!stats[key]) {
+        stats[key] = { sales: 0, orders: new Set(), customers: new Set() };
       }
-    
-      // Calculate sales for this transaction
-      const tProducts = transactionProducts.filter(tp => tp.transaction_id === t.id);
-      const transactionTotal = tProducts.reduce((sum, tp) => sum + (tp.price * tp.quantity), 0);
-    
-      branchStats[t.branch_id].sales += transactionTotal;
-      branchStats[t.branch_id].orders += 1;
-    
-      // Customers = unique transactions
-      branchStats[t.branch_id].customers.add(t.id);
+
+      // Add sales from subtotal
+      stats[key].sales += tp.subtotal;
+
+      // Count orders by transaction
+      stats[key].orders.add(tp.transaction_id);
+
+      // Customers = unique transactions (assuming each transaction = one customer)
+      stats[key].customers.add(tp.transaction_id);
     });
 
-    // Convert to array with brand info
-    return branch.flatMap(b => {
-      const brandLinks = branch_brand.filter(bb => bb.branch_id === b.id);
-
-      return brandLinks.map(link => {
-        const brandName = brands.find(br => br.id === link.brand_id)?.name || "Unknown Brand";
-      
-        return {
-          branch: b.name.replace(' Branch', ''),
-          brand: brandName,
-          sales: branchStats[b.id]?.sales || 0,
-          orders: branchStats[b.id]?.orders || 0,
-          customers: branchStats[b.id]?.customers.size || 0
-        };
-      });
-    }).sort((a, b) => b.sales - a.sales);
+    return Object.entries(stats).map(([key, val]) => {
+      const [branch_id, brand_id] = key.split("-").map(Number);
+      return {
+        branch_id,
+        brand_id,
+        sales: val.sales,
+        orders: val.orders.size,
+        customers: val.customers.size,
+      };
+    });
   }
+
+  const branchBrandPerformance = getBranchBrandPerformance(
+    dateRange,
+    transactions,
+    transactionProducts,
+    products,
+    branchBrands
+  ).map(perf => {
+    const branch = branches.find(b => b.id === perf.branch_id);
+    const brand = brands.find(br => br.id === perf.brand_id);
+    return {
+      ...perf,
+      branch_name: branch ? branch.branch_name : `Branch ${perf.branch_id}`,
+      brand_name: brand ? brand.brand_name : `Brand ${perf.brand_id}`
+    };
+  });
 
   return (
     <div className={`space-y-6 ${isMobileOptimized ? 'p-4' : ''}`}>
@@ -620,7 +757,7 @@ export function Dashboard() {
                 </tr>
               </thead>
               <tbody>
-                {getTopProducts(dateRange).slice(0, 10).map((product, index) => (
+                {getTopProducts(dateRange, transactions, transactionProducts, products).slice(0, 10).map((product, index) => (
                   <tr key={product.name} className="border-b border-[#1F2937]">
                     <td className="py-2">
                       <div className="flex items-center gap-2">
@@ -667,7 +804,8 @@ export function Dashboard() {
 
       {/* Branch Comparison */}
       <div className="bg-white p-6 rounded-xl shadow-sm border border-[#1F2937]">
-        <h2 className="text-xl font-bold text-gray-800 mb-4">Branch Performance</h2>
+        <h2 className="text-xl font-bold text-gray-800">Branch Performance</h2>
+        <p className="text-sm text-gray-500 mb-4">{dateText}</p>
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead>
@@ -680,8 +818,8 @@ export function Dashboard() {
               </tr>
             </thead>
             <tbody>
-              {getBranchPerformance(dateRange).map((branch, index) => (
-                <tr key={branch.branch} className="border-b border-[#1F2937] hover:bg-background transition-colors">
+              {branchBrandPerformance.map((branch, index) => (
+                <tr key={`${branch.branch_id}-${branch.brand_id}`} className="border-b border-[#1F2937] hover:bg-background transition-colors">
                   <td className="py-3">
                     <div className="flex items-center gap-2">
                       <span className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold text-white ${
@@ -689,7 +827,7 @@ export function Dashboard() {
                       }`}>
                         {index + 1}
                       </span>
-                      {branch.branch} - {branch.brand}
+                      {branch.branch_name} - {branch.brand_name}
                     </div>
                   </td>
                   <td className="py-3 font-bold text-primary text-center">₱{branch.sales.toLocaleString()}</td>

@@ -2,12 +2,19 @@ import React, { useEffect, useState } from 'react'
 import { useAuth } from '../contexts/AuthContext'
 import { LogOut, User, Store, BarChart3, Package, Users, Gift } from 'lucide-react'
 import { clsx } from 'clsx'
-import products from '../mockdata/products.json'
+import { getProducts, Product } from '../api/productAPI'
 
 interface LayoutProps {
   children: React.ReactNode
   activeTab?: string
   onTabChange?: (tab: string) => void
+}
+
+const roleKeyMap: Record<string, 'owner' | 'admin' | 'staff'> = {
+  'Owner': 'owner',
+  'Super Admin': 'admin',
+  'Admin': 'admin',
+  'Staff': 'staff'  // if you want staff to see cashier navigation
 }
 
 const navigationItems = {
@@ -22,28 +29,51 @@ const navigationItems = {
     { id: 'promotions', label: 'Promotions', icon: Gift },
     { id: 'employees', label: 'Employees', icon: Users },
   ],
-  cashier: [
+  staff: [
     { id: 'register', label: 'Register', icon: Store },
   ]
 }
 
 export function Layout({ children, activeTab, onTabChange }: LayoutProps) {
+  const [products, setProducts] = useState<Product[]>([])
   const { profile, signOut } = useAuth()
   const [alert, setAlert] = useState(false);
   
   if (!profile) return null
 
-  const userNavItems = navigationItems[profile.role] || []
-  const isCashier = profile.role === 'cashier'
+  const roleKey = roleKeyMap[profile.role] || 'staff'
+  const userNavItems = navigationItems[roleKey] || []
+  const isCashier = roleKey === 'staff'
 
   useEffect(() => {
+    let interval: NodeJS.Timeout;
+
+    const fetchProducts = async () => {
+      try {
+        const productsData = await getProducts();
+        setProducts(productsData);
+      } catch (error) {
+        console.error("Failed to fetch products:", error);
+      }
+    };
+
+    fetchProducts(); // initial fetch
+
+    interval = setInterval(fetchProducts, 15000); // every 15s
+
+    return () => clearInterval(interval); // cleanup on unmount
+  }, []);
+
+  useEffect(() => {
+    let hasAlert = false;
     for (const product of products) {
       if (product.stock < product.alert_at) {
-        setAlert(true);
-        break; // stop checking after first alert
+        hasAlert = true;
+        break;
       }
     }
-  }, []);
+    setAlert(hasAlert);
+  }, [products]);
 
   return (
     <div className={clsx(

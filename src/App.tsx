@@ -17,7 +17,7 @@ function AppContent() {
   const [activeTab, setActiveTab] = useState(() => {
     // Set default tab based on user role
     if (!profile) return 'dashboard'
-    return profile.role === 'cashier' ? 'register' : 'dashboard'
+    return profile.role === 'Staff' ? 'register' : 'dashboard'
   })
 
   if (loading) {

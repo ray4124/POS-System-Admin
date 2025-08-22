@@ -2,28 +2,72 @@ import { useState, useEffect, useMemo } from 'react'
 import { XAxis, YAxis, CartesianGrid, Tooltip, LineChart, Line, ResponsiveContainer } from 'recharts'
 import { TrendingUp, DollarSign, ShoppingBag, Users, Download, Package, TrendingDown, AlertTriangle } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
-import branches from '../mockdata/branches.json'
-import branchBrand from '../mockdata/branch_brand.json';
-import brands from '../mockdata/brands.json'
-import transactions from '../mockdata/transactions.json';
-import transactionProducts from '../mockdata/transaction_products.json';
-import products from '../mockdata/products.json';
 import dayjs from 'dayjs'
+import { Product, getProducts } from '../api/productAPI'
+import {
+  Branch,
+  getBranches,
+  Brand,
+  getBrands,
+  BranchBrand, 
+  getBranchBrands, 
+  Transaction, 
+  getTransactions, 
+  TransactionProduct, 
+  getTransactionProducts
+} from '../api/staticAPI'
 
 
 export function Reports() {
+  // states for API data
+  const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [transactionProducts, setTransactionProducts] = useState<TransactionProduct[]>([]);
+  const [branches, setBranches] = useState<Branch[]>([]);
+  const [brands, setBrands] = useState<Brand[]>([]);
+  const [branchBrands, setBranchBrands] = useState<BranchBrand[]>([]);
+  const [products, setProducts] = useState<Product[]>([]);
+
+  // const for page functionality
   const { profile } = useAuth()
   const [dateRange, setDateRange] = useState(7)
   const [dateText, setDateText] = useState(`Last ${dateRange} days`)
   const [branchBrandId, setBranchBrandId] = useState(
-    branchBrand.length > 0 ? branchBrand[0].id : 0
+    branchBrands.length > 0 ? branchBrands[0].id : 0
   );
-  const isMobileOptimized = profile?.role === 'owner'
+  const isMobileOptimized = profile?.role === 'Owner'
   const [showHeader, setShowHeader] = useState(true);
   const [lastScroll, setLastScroll] = useState(0);
   const [atTop, setAtTop] = useState(true); // <-- new
   const [filteredData, setFilteredData] = useState<any[]>([]);
   const [activeTooltip, setActiveTooltip] = useState<number | null>(null);
+
+  useEffect(() => {
+    // Fetch initial data
+    const fetchData = async () => {
+      try {
+        const [fetchedBranches, fetchedBrands, fetchedBranchBrands, fetchedTransactions, fetchedTransactionProducts, fetchedProducts] = await Promise.all([
+          getBranches(),
+          getBrands(),
+          getBranchBrands(),
+          getTransactions(),
+          getTransactionProducts(),
+          getProducts()
+        ]);
+        setBranches(fetchedBranches);
+        setBrands(fetchedBrands);
+        setBranchBrands(fetchedBranchBrands);
+        setTransactions(fetchedTransactions);
+        setTransactionProducts(fetchedTransactionProducts);
+        setProducts(fetchedProducts);
+        if (fetchedBranchBrands.length > 0) {
+          setBranchBrandId(fetchedBranchBrands[0].id);
+        }
+      } catch (error) {
+        console.error("Error fetching data:", error);
+      }
+    };
+    fetchData();
+  }, []);
 
   useEffect(() => {
     const scrollContainer = document.querySelector("main");
@@ -52,11 +96,15 @@ export function Reports() {
       .filter(p => p.stock <= p.alert_at) // low stock condition
       .sort((a, b) => a.stock - b.stock) // sort by stock ascending
       .map(p => {
-        const branch = branches.find(b => b.id === p.branch_id)?.name || 'Unknown Branch';
-        const brand = brands.find(br => br.id === p.brand_id)?.name || 'Unknown Brand';
-        return `${branch} - ${brand}: low stock of ${p.name} remaining ${p.stock}`;
+        // find relation row
+        const relation = branchBrands.find(bb => bb.id === p.branch_brand_id);
+
+        const branch = branches.find(b => b.id === relation?.branch_id)?.branch_name || 'Unknown Branch';
+        const brand = brands.find(br => br.id === relation?.brand_id)?.brand_name || 'Unknown Brand';
+
+        return `${branch} - ${brand}: low stock of ${p.product_name} remaining ${p.stock}`;
       });
-  }, []);
+  }, [products, branches, brands, branchBrands]);
 
   const StatCard = ({ title, value, icon: Icon, growth, color = 'primary', dateIndicate, tooltipId, activeTooltip, setActiveTooltip }: {
     title: string
@@ -126,13 +174,30 @@ export function Reports() {
     return ((current - previous) / previous) * 100;
   }
 
-  function filterTransactionsByBranchBrandAndDateRange(branchBrandId: number, startDate: Date, endDate: Date) {
-    return transactions.filter(t => {
-      const bb = branchBrand.find(bb => bb.branch_id === t.branch_id);
-      if (!bb) return false;
+  function filterTransactionsByBranchBrandAndDateRange(
+    branchBrandId: number,
+    startDate: Date,
+    endDate: Date
+  ) {
+    // Build a dictionary for faster product lookups
+    const productMap: Record<number, number> = {};
+    products.forEach((p) => {
+      productMap[p.id] = p.branch_brand_id;
+    });
 
-      const tDate = new Date(t.date);
-      return bb.id === branchBrandId && tDate >= startDate && tDate <= endDate;
+    return transactions.filter((t) => {
+      const tDate = new Date(t.created_at);
+      if (tDate < startDate || tDate > endDate) return false;
+
+      // get products for this transaction
+      const tProducts = transactionProducts.filter(
+        (tp) => tp.transaction_id === t.id
+      );
+
+      // check if at least one product matches the branchBrandId
+      return tProducts.some(
+        (tp) => productMap[tp.product_id] === branchBrandId
+      );
     });
   }
 
@@ -147,12 +212,12 @@ export function Reports() {
   } = useMemo(() => {
     const now = new Date();
 
-    // Current range
+    // --- Current range ---
     const currentStart = new Date();
     currentStart.setDate(now.getDate() - dateRange);
     const currentTransactions = filterTransactionsByBranchBrandAndDateRange(branchBrandId, currentStart, now);
 
-    // Previous range
+    // --- Previous range ---
     const prevEnd = new Date(currentStart);
     prevEnd.setDate(currentStart.getDate() - 1);
     const prevStart = new Date(prevEnd);
@@ -187,15 +252,9 @@ export function Reports() {
     const prevTransactions = previousTransactions.length;
     const transactionsGrowth = calculateGrowth(totalTransactions, prevTransactions);
 
-    // --- Inventory ---
+    // --- Inventory (direct branch_brand_id filter) ---
     const totalInventory = products
-      .filter(p => {
-        const bb = branchBrand.find(bb =>
-          bb.branch_id === p.branch_id &&
-          bb.brand_id === p.brand_id
-        );
-        return bb?.id === branchBrandId;
-      })
+      .filter(p => p.branch_brand_id === branchBrandId)
       .reduce((sum, p) => sum + p.stock, 0);
 
     return {
@@ -207,7 +266,7 @@ export function Reports() {
       transactionsGrowth,
       totalInventory
     };
-  }, [branchBrandId, dateRange, transactions, transactionProducts, products, branchBrand]);
+  }, [branchBrandId, dateRange, transactions, transactionProducts, products]);
 
   // --- 1️⃣ Filter transactions & calculate daily sales ---
   useEffect(() => {
@@ -221,36 +280,49 @@ export function Reports() {
       salesByDate[dayKey] = { sales: 0, orders: 0 };
     }
 
+    // Build lookup for product → branch_brand
+    const productMap: Record<number, number> = {};
+    products.forEach((p) => {
+      productMap[p.id] = p.branch_brand_id;
+    });
+
     // Filter transactions for selected branch-brand
-    const filteredTransactions = transactions.filter(t => {
-      const bb = branchBrand.find(bb => bb.branch_id === t.branch_id && bb.id === branchBrandId);
-      if (!bb) return false;
-      return dayjs(t.date).isBetween(startDate, endDate, null, "[]");
+    const filteredTransactions = transactions.filter((t) => {
+      const tDate = dayjs(t.created_at);
+      if (!tDate.isBetween(startDate, endDate, null, "[]")) return false;
+
+      const tProducts = transactionProducts.filter((tp) => tp.transaction_id === t.id);
+
+      // Check if any product belongs to this branchBrandId
+      return tProducts.some((tp) => productMap[tp.product_id] === branchBrandId);
     });
 
     // Sum sales & orders per day
-    filteredTransactions.forEach(t => {
-      const tProducts = transactionProducts.filter(tp => tp.transaction_id === t.id);
+    filteredTransactions.forEach((t) => {
+      const tProducts = transactionProducts.filter((tp) => tp.transaction_id === t.id);
+
       const total = tProducts.reduce((sum, tp) => {
-        const product = products.find(p => p.id === tp.product_id);
+        const product = products.find((p) => p.id === tp.product_id);
         return product ? sum + product.price * tp.quantity : sum;
       }, 0);
 
-      const dateKey = dayjs(t.date).format("YYYY-MM-DD");
+      const dateKey = dayjs(t.created_at).format("YYYY-MM-DD");
       if (!salesByDate[dateKey]) salesByDate[dateKey] = { sales: 0, orders: 0 };
       salesByDate[dateKey].sales += total;
       salesByDate[dateKey].orders += 1;
     });
 
     // Convert to array
-    const dailyData = Object.entries(salesByDate).map(([date, { sales, orders }]) => ({
-      date,
-      sales,
-      orders
-    }));
+    const dailyData = Object.entries(salesByDate).map(
+      ([date, { sales, orders }]) => ({
+        date,
+        sales,
+        orders,
+      })
+    );
 
     setFilteredData(dailyData);
-  }, [dateRange, branchBrandId]);
+  }, [dateRange, branchBrandId, transactions, transactionProducts, products]);
 
   // --- 2️⃣ Group data for chart points ---
   function getGroupedSalesData(data: any[], dateRange: number) {
@@ -277,44 +349,57 @@ export function Reports() {
       : 0;
 
   const topProducts = useMemo(() => {
-    const startDate = dayjs().subtract(dateRange - 1, 'day').startOf('day');
-    const endDate = dayjs().endOf('day');
+    const startDate = dayjs().subtract(dateRange - 1, "day").startOf("day");
+    const endDate = dayjs().endOf("day");
 
-    // Filter transactions
-    const filteredTransactions = transactions.filter(t => {
-      const bb = branchBrand.find(bb => bb.branch_id === t.branch_id && bb.id === branchBrandId);
-      if (!bb) return false;
-      return dayjs(t.date).isBetween(startDate, endDate, null, '[]');
+    // Build product → branch_brand map
+    const productMap: Record<number, { branchBrandId: number; name: string; price: number }> = {};
+    products.forEach((p) => {
+      productMap[p.id] = { branchBrandId: p.branch_brand_id, name: p.product_name, price: p.price };
+    });
+
+    // Filter transactions (only those with at least one product from branchBrandId in range)
+    const filteredTransactions = transactions.filter((t) => {
+      const tDate = dayjs(t.created_at);
+      if (!tDate.isBetween(startDate, endDate, null, "[]")) return false;
+
+      const tProducts = transactionProducts.filter((tp) => tp.transaction_id === t.id);
+      return tProducts.some((tp) => productMap[tp.product_id]?.branchBrandId === branchBrandId);
     });
 
     // Aggregate sales
-    const productSalesMap: { [key: number]: { name: string; sales: number; revenue: number } } = {};
+    const productSalesMap: Record<number, { name: string; sales: number; revenue: number }> = {};
 
-    filteredTransactions.forEach(t => {
-      const tProducts = transactionProducts.filter(tp => tp.transaction_id === t.id);
+    filteredTransactions.forEach((t) => {
+      const tProducts = transactionProducts.filter((tp) => tp.transaction_id === t.id);
 
-      tProducts.forEach(tp => {
-        const product = products.find(p => p.id === tp.product_id);
+      tProducts.forEach((tp) => {
+        const product = productMap[tp.product_id];
         if (!product) return;
+        if (product.branchBrandId !== branchBrandId) return; // ✅ Only count products for this branchBrandId
 
-        if (!productSalesMap[product.id]) {
-          productSalesMap[product.id] = {
+        if (!productSalesMap[tp.product_id]) {
+          productSalesMap[tp.product_id] = {
             name: product.name,
             sales: 0,
-            revenue: 0
+            revenue: 0,
           };
         }
 
-        productSalesMap[product.id].sales += tp.quantity;
-        productSalesMap[product.id].revenue += product.price * tp.quantity;
+        productSalesMap[tp.product_id].sales += tp.quantity;
+        productSalesMap[tp.product_id].revenue += product.price * tp.quantity;
       });
     });
 
     // Sort & limit
     return Object.values(productSalesMap)
       .sort((a, b) => b.revenue - a.revenue)
-      .slice(0, 10) // Top 10 products
-  }, [branchBrandId, dateRange]);
+      .slice(0, 10); // Top 10 products
+  }, [branchBrandId, dateRange, transactions, transactionProducts, products]);
+
+  const branchBrand = branchBrands.find(bb => bb.id === branchBrandId);
+  const branchName = branchBrand ? branches.find(b => b.id === branchBrand.branch_id)?.branch_name : null;
+  const brandName = branchBrand ? brands.find(br => br.id === branchBrand.brand_id)?.brand_name : null;
 
   return (
     <div className={`space-y-6 ${isMobileOptimized ? 'p-4' : ''}`}>
@@ -336,9 +421,9 @@ export function Reports() {
               onChange={(e) => setBranchBrandId(Number(e.target.value))}
               className="px-4 py-2 border border-brown-200 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
             >
-              {branchBrand.map((bb) => {
-                const branchName = branches.find(b => b.id === bb.branch_id)?.name || `Branch ${bb.branch_id}`;
-                const brandName = brands.find(br => br.id === bb.brand_id)?.name || `Brand ${bb.brand_id}`;
+              {branchBrands.map((bb) => {
+                const branchName = branches.find(b => b.id === bb.branch_id)?.branch_name || `Branch ${bb.branch_id}`;
+                const brandName = brands.find(br => br.id === bb.brand_id)?.brand_name || `Brand ${bb.brand_id}`;
                 return (
                   <option key={bb.id} value={bb.id}>
                     {branchName} - {brandName}
@@ -471,7 +556,9 @@ export function Reports() {
 
       {/* Top Products */}
       <div className="bg-white p-6 rounded-xl shadow-sm border border-brown-100">
-        <h2 className="text-xl font-bold text-brown-900">Top Selling Products of {branches.find(b => b.id === branchBrandId)?.name || `Branch ${branchBrandId}`}</h2>
+        <h2 className="text-xl font-bold text-brown-900">
+          Top Selling Products of {brandName && branchName ? `${branchName} - ${brandName}` : `BranchBrand ${branchBrandId}`}
+        </h2>
         <p className="text-brown-600 mb-4">
           The top products sold in the last {dateRange} days.
         </p>
