@@ -2,6 +2,8 @@ import React, { createContext, useContext, useEffect, useState } from 'react'
 import axios from 'axios'
 import { Employee, login } from '../api/employeeAPI'
 import { Branch, getBranches } from '../api/staticAPI'
+import bcrypt from "bcryptjs";
+import { staffDB } from "./staffDB";
 
 interface Profile {
   id: number
@@ -106,23 +108,70 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
   const signIn = async (email: string, password: string) => {
     try {
-      // Try real backend
-      const res = await login(email, password)
-      const emp = res;
-      setUser(emp)
-      setProfile({ id: emp.id, email: emp.email, full_name: emp.name, role: emp.role, branch_id: emp.branch_id, is_active: true, created_at: new Date().toISOString() })
-      return { error: null }
+      // 🔹 Try real backend
+      const emp = await login(email, password);
+
+      // ✅ No password saving here, just trust backend
+      setUser(emp);
+      setProfile({
+        id: emp.id,
+        email: emp.email,
+        full_name: emp.name,
+        role: emp.role,
+        branch_id: emp.branch_id,
+        is_active: true,
+        created_at: new Date().toISOString(),
+      });
+
+      return { error: null };
     } catch (err) {
-      console.warn('Backend login failed, using mock:', err)
-      if (mockUsers[email] && password === 'demo123') {
-        const mock = mockUsers[email]
-        setUser({ id: mock.profile.id, name: mock.profile.full_name, email: mock.profile.email, role: mock.profile.role, branch_id: mock.profile.branch_id })
-        setProfile(mock.profile)
-        return { error: null }
+      console.warn("⚠️ Backend login failed, trying offline:", err);
+
+      // 🔹 First check your mock users
+      if (mockUsers[email] && password === "demo123") {
+        const mock = mockUsers[email];
+        setUser({
+          id: mock.profile.id,
+          name: mock.profile.full_name,
+          email: mock.profile.email,
+          role: mock.profile.role,
+          branch_id: mock.profile.branch_id,
+        });
+        setProfile(mock.profile);
+        return { error: null };
       }
-      return { error: { message: 'Invalid email or password' } }
+
+      // 🔹 Next check IndexedDB (offline login)
+      const staff = await staffDB.staffs.where("email").equals(email).first();
+
+      if (staff && staff.passwordHash) {
+        /// const match = await bcrypt.compare(password, staff.passwordHash);
+        const match = password === staff.passwordHash
+        if (match) {
+          // ✅ Offline login success
+          setUser({
+            id: staff.id,
+            name: staff.name,
+            email: staff.email,
+            role: staff.role,
+            branch_id: staff.branch_id,
+          });
+          setProfile({
+            id: staff.id,
+            email: staff.email,
+            full_name: staff.name,
+            role: staff.role,
+            branch_id: staff.branch_id,
+            is_active: true,
+            created_at: staff.modified_at,
+          });
+          return { error: null };
+        }
+      }
+
+      return { error: { message: "Invalid email or password (offline)" } };
     }
-  }
+  };
 
   const signOut = async () => {
     setUser(null)

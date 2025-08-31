@@ -1,9 +1,8 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { BrowserRouter as Router } from 'react-router-dom'
 import { AuthProvider, useAuth } from './contexts/AuthContext'
 import { LoginForm } from './components/LoginForm'
 import { Layout } from './components/Layout'
-import { Register } from './components/Register'
 import { Dashboard } from './components/Dashboard'
 import { Inventory } from './components/Inventory'
 import { Promotions } from './components/Promotions'
@@ -11,14 +10,29 @@ import { Employees } from './components/Employees'
 import { Reports } from './components/Reports'
 import './index.css'
 import 'react-datepicker/dist/react-datepicker.css';
+import { syncStaffs } from './contexts/staffDB'
 
 function AppContent() {
   const { user, profile, loading } = useAuth()
-  const [activeTab, setActiveTab] = useState(() => {
-    // Set default tab based on user role
-    if (!profile) return 'dashboard'
-    return profile.role === 'Staff' ? 'register' : 'dashboard'
-  })
+  const [activeTab, setActiveTab] = useState("dashboard")
+
+  useEffect(() => {
+    if (profile) {
+      setActiveTab(profile.role === "Staff" ? "register" : "dashboard")
+    }
+  }, [profile])
+
+  useEffect(() => {
+    // 🔹 Run sync on first load
+    syncStaffs();
+
+    // 🔹 Optionally, set up interval sync (e.g. every 5 mins)
+    const interval = setInterval(() => {
+      syncStaffs();
+    }, 5 * 60 * 1000);
+
+    return () => clearInterval(interval);
+  }, []);
 
   if (loading) {
     return (
@@ -38,7 +52,9 @@ function AppContent() {
   const renderContent = () => {
     switch (activeTab) {
       case 'register':
-        return <Register />
+        window.location.href = "http://localhost:5174/staff/";
+        
+        return null;
       case 'dashboard':
         return <Dashboard />
       case 'inventory':
