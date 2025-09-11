@@ -648,7 +648,7 @@ export function Dashboard() {
         {/* Sales Trend */}
         <div className="bg-white p-6 rounded-xl shadow-sm border border-[#1F2937]">
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-xl font-bold text-brown-900">Sales Trend</h2>
+            <h2 className="text-xl font-bold text-gray-800">Sales Trend</h2>
             <div className="flex items-center gap-2" style={{ color: salesChangePercent >= 0 ? 'green' : 'red' }}>
               {salesChangePercent >= 0 ? (
                 <TrendingUp className="h-4 w-4" />

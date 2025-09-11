@@ -65,10 +65,10 @@ export function Employees() {
 
   const getRoleBadgeColor = (role: Employee["role"]) => {
     switch (role) {
-      case 'Owner': return 'bg-promo/20 text-brown-900'
+      case 'Owner': return 'bg-promo/20 text-gray-800'
       case 'Admin': return 'bg-secondary/10 text-secondary'
-      case 'Staff': return 'bg-brown-100 text-brown-800'
-      default: return 'bg-brown-100 text-brown-800'
+      case 'Staff': return 'bg-brown-100 text-gray-800'
+      default: return 'bg-brown-100 text-gray-800'
     }
   }
 
@@ -370,8 +370,8 @@ export function Employees() {
       {/* Header */}
       <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-brown-900">Employee Management</h1>
-          <p className="text-brown-600">Manage your team members and their access levels</p>
+          <h1 className="text-3xl font-bold text-gray-800">Employee Management</h1>
+          <p className="text-gray-600">Manage your team members and their access levels</p>
         </div>
         
         <button
@@ -386,11 +386,11 @@ export function Employees() {
       {/* Role Statistics */}
       <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
         {Object.entries(roleStats).map(([role, count]) => (
-          <div key={role} className="bg-white p-4 rounded-xl shadow-sm border border-brown-100">
+          <div key={role} className="bg-white p-4 rounded-xl shadow-sm border border-[#1F2937]">
             <div className="flex items-center gap-3 mb-2">
               <span className="text-2xl">{getRoleIcon(role as Employee["role"])}</span>
               <div>
-                <h3 className="text-lg font-semibold text-brown-900 capitalize">{role}s</h3>
+                <h3 className="text-lg font-semibold text-gray-800 capitalize">{role}s</h3>
                 <p className="text-2xl font-bold text-primary">{count}</p>
               </div>
             </div>
@@ -400,27 +400,27 @@ export function Employees() {
 
       {/* Filters */}
       <div className="relative flex-1">
-        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-brown-400 h-5 w-5" />
+        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
         <input
           type="text"
           placeholder="Search Employee..."
           value={search}
           onChange={(e) => {setSearch(e.target.value)}}
-          className="w-full pl-10 pr-4 py-2 border border-brown-200 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
+          className="w-full pl-10 pr-4 py-2 border border-[#1F2937] rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
           onClick={() => setSearch('')}
         />
       </div>
 
       {/* Employees Table */}
-      <div className="bg-white rounded-xl shadow-sm border border-brown-100 overflow-hidden">
+      <div className="bg-white rounded-xl shadow-sm border border-[#1F2937] overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full">
-            <thead className="bg-brown-50 border-b border-brown-200">
+            <thead className="bg-brown-50 border-b border-[#1F2937]">
               <tr>
-                <th className="text-left py-3 px-4 font-semibold text-brown-800">Employee</th>
-                <th className="text-left py-3 px-4 font-semibold text-brown-800">Role</th>
-                <th className="text-left py-3 px-4 font-semibold text-brown-800">Branch</th>
-                <th className="text-left py-3 px-4 font-semibold text-brown-800">Actions</th>
+                <th className="text-left py-3 px-4 font-semibold text-gray-800">Employee</th>
+                <th className="text-left py-3 px-4 font-semibold text-gray-800">Role</th>
+                <th className="text-left py-3 px-4 font-semibold text-gray-800">Branch</th>
+                <th className="text-left py-3 px-4 font-semibold text-gray-800">Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -432,8 +432,8 @@ export function Employees() {
                         <Users className="h-5 w-5 text-primary" />
                       </div>
                       <div>
-                        <p className="font-medium text-brown-900">{employee.name}</p>
-                        <p className="text-sm text-brown-600 flex items-center gap-1">
+                        <p className="font-medium text-gray-800">{employee.name}</p>
+                        <p className="text-sm text-gray-600 flex items-center gap-1">
                           <Mail className="h-3 w-3" />
                           {employee.email}
                         </p>
@@ -450,7 +450,7 @@ export function Employees() {
                     </span>
                   </td>
                   <td className="py-3 px-4">
-                    <div className="flex items-center gap-1 text-brown-600">
+                    <div className="flex items-center gap-1 text-gray-600">
                       <MapPin className="h-4 w-4" />
                       <span>
                         {employee.branch_id

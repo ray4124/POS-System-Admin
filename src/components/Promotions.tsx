@@ -86,8 +86,8 @@ export function Promotions() {
     switch (type) {
       case 'percentage': return 'bg-primary/10 text-primary'
       case 'fixed': return 'bg-secondary/10 text-secondary'
-      case 'bogo': return 'bg-promo/20 text-brown-800'
-      default: return 'bg-brown-100 text-brown-800'
+      case 'bogo': return 'bg-promo/20 text-gray-800'
+      default: return 'bg-brown-100 text-gray-800'
     }
   }
 
@@ -460,8 +460,8 @@ export function Promotions() {
       {/* Header */}
       <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-brown-900">Promotions</h1>
-          <p className="text-brown-600">Manage your promotional campaigns and discounts</p>
+          <h1 className="text-3xl font-bold text-gray-800">Promotions</h1>
+          <p className="text-gray-600">Manage your promotional campaigns and discounts</p>
         </div>
         
         <button
@@ -475,9 +475,9 @@ export function Promotions() {
 
       {/* Statistics Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div className="bg-white p-6 rounded-xl shadow-sm border border-brown-100">
+        <div className="bg-white p-6 rounded-xl shadow-sm border border-[#1F2937]">
           <div className="flex items-center justify-between mb-2">
-            <h3 className="text-lg font-semibold text-brown-900">Active Promotions</h3>
+            <h3 className="text-lg font-semibold text-gray-800">Active Promotions</h3>
             <div className="bg-green-100 p-2 rounded-lg">
               <Gift className="h-5 w-5 text-green-600" />
             </div>
@@ -485,9 +485,9 @@ export function Promotions() {
           <p className="text-3xl font-bold text-green-600">{ongoing.length}</p>
         </div>
 
-        <div className="bg-white p-6 rounded-xl shadow-sm border border-brown-100">
+        <div className="bg-white p-6 rounded-xl shadow-sm border border-[#1F2937]">
           <div className="flex items-center justify-between mb-2">
-            <h3 className="text-lg font-semibold text-brown-900">Upcoming</h3>
+            <h3 className="text-lg font-semibold text-gray-800">Upcoming</h3>
             <div className="bg-primary/10 p-2 rounded-lg">
               <Calendar className="h-5 w-5 text-primary" />
             </div>
@@ -495,9 +495,9 @@ export function Promotions() {
           <p className="text-3xl font-bold text-primary">{incoming.length}</p>
         </div>
 
-        <div className="bg-white p-6 rounded-xl shadow-sm border border-brown-100">
+        <div className="bg-white p-6 rounded-xl shadow-sm border border-[#1F2937]">
           <div className="flex items-center justify-between mb-2">
-            <h3 className="text-lg font-semibold text-brown-900">Expired</h3>
+            <h3 className="text-lg font-semibold text-gray-800">Expired</h3>
             <div className="bg-brown-100 p-2 rounded-lg">
               <Clock className="h-5 w-5 text-brown-600" />
             </div>
@@ -508,45 +508,45 @@ export function Promotions() {
 
       {/* On-going Promotions */}
       <div>
-        <h2 className="text-xl font-bold text-brown-900 mb-4">On-going Promotions</h2>
-        <div className="bg-white rounded-xl shadow-sm border border-brown-100 overflow-hidden">
+        <h2 className="text-xl font-bold text-gray-800 mb-4">On-going Promotions</h2>
+        <div className="bg-white rounded-xl shadow-sm border border-[#1F2937] overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full">
-              <thead className="bg-brown-50 border-b border-brown-200">
+              <thead className="bg-brown-50 border-b border-[#1F2937]">
                 <tr>
-                  <th className="text-left py-3 px-4 font-semibold text-brown-800">Promotion</th>
-                  <th className="text-left py-3 px-4 font-semibold text-brown-800">Type</th>
-                  <th className="text-left py-3 px-4 font-semibold text-brown-800">Value</th>
-                  <th className="text-left py-3 px-4 font-semibold text-brown-800">Duration</th>
-                  <th className="text-left py-3 px-4 font-semibold text-brown-800">Time Frame</th>
+                  <th className="text-left py-3 px-4 font-semibold text-gray-800">Promotion</th>
+                  <th className="text-left py-3 px-4 font-semibold text-gray-800">Type</th>
+                  <th className="text-left py-3 px-4 font-semibold text-gray-800">Value</th>
+                  <th className="text-left py-3 px-4 font-semibold text-gray-800">Duration</th>
+                  <th className="text-left py-3 px-4 font-semibold text-gray-800">Time Frame</th>
                 </tr>
               </thead>
               <tbody>
                 {ongoing.map((promotion) => {
                   return (
-                    <tr key={promotion.id} className="relative group border-b border-brown-100 hover:bg-background transition-colors">
+                    <tr key={promotion.id} className="relative group border-b border-gray-400 hover:bg-background transition-colors">
                       <td className="py-3 px-4">
                         <div className="flex items-center gap-3">
                           <div className={clsx("p-2 rounded-lg", getPromotionColor(promotion.type))}>
                             {getPromotionIcon(promotion.type)}
                           </div>
                           <div>
-                            <p className="font-medium text-brown-900">{promotion.name}</p>
+                            <p className="font-medium text-gray-800">{promotion.name}</p>
                             {(promotion.minimum_spend) && (
-                              <p className="text-xs text-brown-600">Min. purchase: ₱{promotion.minimum_spend}</p>
+                              <p className="text-xs text-gray-600">Min. purchase: ₱{promotion.minimum_spend}</p>
                             )}
                             {(promotion.minimum_item) && (
-                              <p className="text-xs text-brown-600">Min. items: {promotion.minimum_item}</p>
+                              <p className="text-xs text-gray-600">Min. items: {promotion.minimum_item}</p>
                             )}
                             {/* Tooltip inside td */}
-                            <div className="absolute left-0 -top-8 hidden group-hover:block bg-brown-900 text-white text-xs rounded px-2 py-1 shadow-md z-10 whitespace-nowrap">
+                            <div className="absolute left-0 -top-8 hidden group-hover:block bg-gray-800 text-white text-xs rounded px-2 py-1 shadow-md z-10 whitespace-nowrap">
                               {promotion.description || "No description"}
                             </div>
                           </div>
                         </div>
                       </td>
                       <td className="py-3 px-4">
-                        <span className="px-2 py-1 bg-brown-100 text-brown-800 text-xs rounded-full capitalize">
+                        <span className="px-2 py-1 bg-blue-200 text-gray-800 text-xs rounded-full capitalize">
                           {promotion.type}
                         </span>
                       </td>
@@ -558,8 +558,8 @@ export function Promotions() {
                       </td>
                       <td className="py-3 px-4 text-sm">
                         <div>
-                          <p>{new Date(promotion.start_date).toLocaleDateString()}</p>
-                          <p className="text-brown-600">to {new Date(promotion.end_date).toLocaleDateString()}</p>
+                          <p className='text-gray-600'>{new Date(promotion.start_date).toLocaleDateString()}</p>
+                          <p className="text-blue-400">to {new Date(promotion.end_date).toLocaleDateString()}</p>
                         </div>
                       </td>
                       <td className="py-3 px-4">
@@ -596,26 +596,26 @@ export function Promotions() {
 
       {/* All Promotions */}
       <div>
-        <h2 className="text-xl font-bold text-brown-900 mb-2">Upcoming and Expired Promotions</h2>
+        <h2 className="text-xl font-bold text-gray-800 mb-2">Upcoming and Expired Promotions</h2>
         <div className="grid grid-cols-1 lg:grid-cols-5 gap-4 mb-4">
           <div className="relative flex-1 col-span-4">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-brown-400 h-5 w-5" />
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
             <input
               type="text"
               placeholder="Search Promotion..."
               value={search}
               onChange={(e) => {setSearch(e.target.value)}}
-              className="w-full pl-10 pr-4 py-2 border border-brown-200 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
+              className="w-full pl-10 pr-4 py-2 border border-[#1F2937] rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
               onClick={() => setSearch('')}
             />
           </div>
                 
           <div className="flex items-center gap-2">
-            <Filter className="h-5 w-5 text-brown-600" />
+            <Filter className="h-5 w-5 text-gray-600" />
             <select
               value={category}
               onChange={(e) => {setCategory(Number(e.target.value))}}
-              className="flex-1 px-3 py-2 border border-brown-200 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
+              className="flex-1 px-3 py-2 border border-[#1F2937] rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
             >
               <option value={0}>Other Promotions</option>
               <option value={1}>Upcoming Only</option>
@@ -623,42 +623,42 @@ export function Promotions() {
             </select>
           </div>
         </div>
-        <div className="bg-white rounded-xl shadow-sm border border-brown-100 overflow-hidden">
+        <div className="bg-white rounded-xl shadow-sm border border-[#1F2937] overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full">
-              <thead className="bg-brown-50 border-b border-brown-200">
+              <thead className="bg-brown-50 border-b border-[#1F2937]">
                 <tr>
-                  <th className="text-left py-3 px-4 font-semibold text-brown-800">Promotion</th>
-                  <th className="text-left py-3 px-4 font-semibold text-brown-800">Type</th>
-                  <th className="text-left py-3 px-4 font-semibold text-brown-800">Value</th>
-                  <th className="text-left py-3 px-4 font-semibold text-brown-800">Duration</th>
-                  <th className="text-left py-3 px-4 font-semibold text-brown-800">Time Frame</th>
-                  <th className="text-left py-3 px-4 font-semibold text-brown-800">Status</th>
-                  <th className="text-left py-3 px-4 font-semibold text-brown-800">Actions</th>
+                  <th className="text-left py-3 px-4 font-semibold text-gray-800">Promotion</th>
+                  <th className="text-left py-3 px-4 font-semibold text-gray-800">Type</th>
+                  <th className="text-left py-3 px-4 font-semibold text-gray-800">Value</th>
+                  <th className="text-left py-3 px-4 font-semibold text-gray-800">Duration</th>
+                  <th className="text-left py-3 px-4 font-semibold text-gray-800">Time Frame</th>
+                  <th className="text-left py-3 px-4 font-semibold text-gray-800">Status</th>
+                  <th className="text-left py-3 px-4 font-semibold text-gray-800">Actions</th>
                 </tr>
               </thead>
               <tbody>
                 {OtherPromotions.map((promotion) => {
                   return (
-                    <tr key={promotion.id} className="border-b border-brown-100 hover:bg-background transition-colors">
+                    <tr key={promotion.id} className="border-b border-gray-400 hover:bg-background transition-colors">
                       <td className="py-3 px-4">
                         <div className="flex items-center gap-3">
                           <div className={clsx("p-2 rounded-lg", getPromotionColor(promotion.type))}>
                             {getPromotionIcon(promotion.type)}
                           </div>
                           <div>
-                            <p className="font-medium text-brown-900">{promotion.name}</p>
+                            <p className="font-medium text-gray-800">{promotion.name}</p>
                             {promotion.minimum_spend && (
-                              <p className="text-xs text-brown-600">Min. purchase: ₱{promotion.minimum_spend}</p>
+                              <p className="text-xs text-gray-600">Min. purchase: ₱{promotion.minimum_spend}</p>
                             )}
                             {promotion.minimum_item && (
-                              <p className="text-xs text-brown-600">Min. items: {promotion.minimum_item}</p>
+                              <p className="text-xs text-gray-600">Min. items: {promotion.minimum_item}</p>
                             )}
                           </div>
                         </div>
                       </td>
                       <td className="py-3 px-4">
-                        <span className="px-2 py-1 bg-brown-100 text-brown-800 text-xs rounded-full capitalize">
+                        <span className="px-2 py-1 bg-blue-200 text-gray-800 text-xs rounded-full capitalize">
                           {promotion.type}
                         </span>
                       </td>
@@ -670,13 +670,13 @@ export function Promotions() {
                       </td>
                       <td className="py-3 px-4 text-sm">
                         <div>
-                          <p>{new Date(promotion.start_date).toLocaleDateString()}</p>
-                          <p className="text-brown-600">to {new Date(promotion.end_date).toLocaleDateString()}</p>
+                          <p className='text-gray-600'>{new Date(promotion.start_date).toLocaleDateString()}</p>
+                          <p className="text-blue-400">to {new Date(promotion.end_date).toLocaleDateString()}</p>
                         </div>
                       </td>
                       <td className="py-3 px-4">
                         <span className={clsx(
-                          "px-2 py-1 text-xs rounded-full bg-brown-100 text-brown-600"
+                          "px-2 py-1 text-xs rounded-full bg-blue-200 text-gray-600"
                         )}>
                           {promotion.start_time_frame && promotion.end_time_frame ? (
                             <>

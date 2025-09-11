@@ -346,13 +346,13 @@ export function Inventory() {
 
           {/* 🔹 Footer buttons */}
           <div className="mt-4 flex justify-end gap-3">
-            <button onClick={onClose} disabled={loading} className="px-4 py-2 bg-gray-200 rounded">
+            <button onClick={onClose} disabled={loading} className="px-4 py-2 bg-gray-200 rounded text-gray-600">
               Cancel
             </button>
             <button
               onClick={handleSubmit}
               disabled={loading}
-              className="px-4 py-2 bg-brown-600 text-white rounded"
+              className="px-4 py-2 bg-blue-600 text-white rounded"
             >
               {product ? (loading ? "Updating" : "Update") : (loading ? "Saving..." : "Save")}
             </button>
@@ -450,8 +450,8 @@ export function Inventory() {
       {/* Header */}
       <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-brown-900">Inventory Management</h1>
-          <p className="text-brown-600">Manage your product inventory and stock levels</p>
+          <h1 className="text-3xl font-bold text-gray-800">Inventory Management</h1>
+          <p className="text-gray-600">Manage your product inventory and stock levels</p>
         </div>
         
         <div className="flex items-center gap-3">
@@ -485,23 +485,23 @@ export function Inventory() {
       {/* Filters */}
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
         <div className="relative flex-1 col-span-4">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-brown-400 h-5 w-5" />
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
           <input
             type="text"
             placeholder="Search products..."
             value={search}
             onChange={(e) => {setSearch(e.target.value)}}
-            className="w-full pl-10 pr-4 py-2 border border-brown-200 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
+            className="w-full pl-10 pr-4 py-2 border border-[#1F2937] rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
             onClick={() => setSearch('')}
           />
         </div>
         
         <div className="flex items-center gap-2">
-          <Filter className="h-5 w-5 text-brown-600" />
+          <Filter className="h-5 w-5 text-gray-600" />
           <select
             value={filter}
             onChange={(e) => {setFilter(Number(e.target.value))}}
-            className="flex-1 px-3 py-2 border border-brown-200 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
+            className="flex-1 px-3 py-2 border border-[#1F2937] rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
           >
             <option value={0}>All Products</option>
             {branchBrand.map((bb) => {
@@ -522,20 +522,20 @@ export function Inventory() {
       </div>
 
       {/* Products Table */}
-      <div className="bg-white rounded-xl shadow-sm border border-brown-100 overflow-hidden">
+      <div className="bg-white rounded-xl shadow-sm border border-[#1F2937] overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full">
-            <thead className="bg-brown-50 border-b border-brown-200">
+            <thead className="bg-brown-50 border-b border-[#1F2937]">
               <tr>
-                <th className="text-left py-3 px-4 font-semibold text-brown-800">Product</th>
-                <th className="text-left py-3 px-4 font-semibold text-brown-800">Category</th>
+                <th className="text-left py-3 px-4 font-semibold text-gray-800">Product</th>
+                <th className="text-left py-3 px-4 font-semibold text-gray-800">Category</th>
                 {filter === 0 && (
-                <th className="text-left py-3 px-4 font-semibold text-brown-800">Branch and Brand</th>
+                <th className="text-left py-3 px-4 font-semibold text-gray-800">Branch and Brand</th>
                 )}
-                <th className="text-left py-3 px-4 font-semibold text-brown-800">Price</th>
-                <th className="text-left py-3 px-4 font-semibold text-brown-800">Cost</th>
-                <th className="text-left py-3 px-4 font-semibold text-brown-800">Status</th>
-                <th className="text-left py-3 px-4 font-semibold text-brown-800">Actions</th>
+                <th className="text-left py-3 px-4 font-semibold text-gray-800">Price</th>
+                <th className="text-left py-3 px-4 font-semibold text-gray-800">Cost</th>
+                <th className="text-left py-3 px-4 font-semibold text-gray-800">Status</th>
+                <th className="text-left py-3 px-4 font-semibold text-gray-800">Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -550,7 +550,7 @@ export function Inventory() {
                   `Brand ${bb?.brand_id}`;
                 
                 return (
-                  <tr key={p.id} className="border-b border-brown-100 hover:bg-background transition-colors">
+                  <tr key={p.id} className="border-b border-gray-400 hover:bg-background transition-colors">
                     <td className="py-3 px-4">
                       <p className="font-medium text-brown-900">{p.product_name}</p>
                     </td>

@@ -120,7 +120,7 @@ export function Reports() {
   }) => {
     const showTooltip = activeTooltip === tooltipId;
     return (
-      <div className="bg-white p-6 rounded-xl shadow-sm border border-brown-100 hover:shadow-md transition-all">
+      <div className="bg-white p-6 rounded-xl shadow-sm border border-[#1F2937]">
         <div className="flex items-center justify-between mb-4">
           <div className={`p-3 rounded-lg bg-${color}/10`}>
             <Icon className={`h-6 w-6 text-${color === 'primary' ? 'primary' : color === 'error' ? 'error' : 'secondary'}`} />
@@ -156,11 +156,11 @@ export function Reports() {
             </div>
           )}
         </div>
-        <h3 className="text-2xl font-bold text-brown-900 mb-1">
+        <h3 className="text-2xl font-bold text-gray-800 mb-1">
           {typeof value === 'number' && title.includes('Sales') ? `₱${value.toLocaleString()}` : value}
         </h3>
-        <p className="text-brown-600 text-sm">{title}</p>
-        <p className="text-brown-500 text-xs mt-1">{dateIndicate}</p>
+        <p className="text-gray-800 text-sm">{title}</p>
+        <p className="text-gray-500 text-xs mt-1">{dateIndicate}</p>
       </div>
     )
   }
@@ -411,15 +411,15 @@ export function Reports() {
       >
         <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
           <div>
-            <h1 className="text-2xl lg:text-3xl font-bold text-brown-900">Analytics & Reports</h1>
-            <p className="text-brown-600">Comprehensive business insights and data analytics</p>
+            <h1 className="text-2xl lg:text-3xl font-bold text-gray-800">Analytics & Reports</h1>
+            <p className="text-gray-500">Comprehensive business insights and data analytics</p>
           </div>
 
           <div className="flex items-center gap-3">
             <select
               value={branchBrandId}
               onChange={(e) => setBranchBrandId(Number(e.target.value))}
-              className="px-4 py-2 border border-brown-200 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
+              className="px-4 py-2 border border-[#1F2937] rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
             >
               {branchBrands.map((bb) => {
                 const branchName = branches.find(b => b.id === bb.branch_id)?.branch_name || `Branch ${bb.branch_id}`;
@@ -434,7 +434,7 @@ export function Reports() {
             <select
               value={dateRange}
               onChange={(e) => setDateRange(Number(e.target.value))}
-              className="px-4 py-2 border border-brown-200 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
+              className="px-4 py-2 border border-[#1F2937] rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
             >
               <option value={7}>Last 7 days</option>
               <option value={30}>Last 30 days</option>
@@ -510,9 +510,9 @@ export function Reports() {
       {/* Charts Section */}
       <div>
         {/* Sales Trend */}
-        <div className="bg-white p-6 rounded-xl shadow-sm border border-brown-100">
+        <div className="bg-white p-6 rounded-xl shadow-sm border border-[#1F2937]">
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-xl font-bold text-brown-900">Sales Trend</h2>
+            <h2 className="text-xl font-bold text-gray-800">Sales Trend</h2>
             <div className="flex items-center gap-2" style={{ color: salesChangePercent >= 0 ? 'green' : 'red' }}>
               {salesChangePercent >= 0 ? (
                 <TrendingUp className="h-4 w-4" />
@@ -527,14 +527,14 @@ export function Reports() {
           </div>
           <ResponsiveContainer width="100%" height={300}>
             <LineChart data={groupedData}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#efc282" />
+              <CartesianGrid strokeDasharray="3 3" stroke="#000000" />
               <XAxis 
                 dataKey="date" 
-                stroke="#932f17"
+                stroke="#1F2937"
                 tickFormatter={(value) => new Date(value).toLocaleDateString()}
                 padding={{left: 60, right: 60}}
               />
-              <YAxis stroke="#932f17" />
+              <YAxis stroke="#1F2937" />
               <Tooltip 
                 contentStyle={{ 
                   backgroundColor: '#fdf6f5', 
@@ -545,7 +545,7 @@ export function Reports() {
               <Line 
                 type="monotone" 
                 dataKey="sales" 
-                stroke="#38b6ff" 
+                stroke="#38b6ff"
                 strokeWidth={3}
                 dot={{ fill: '#38b6ff', r: 6 }}
               />
@@ -555,25 +555,25 @@ export function Reports() {
       </div>
 
       {/* Top Products */}
-      <div className="bg-white p-6 rounded-xl shadow-sm border border-brown-100">
-        <h2 className="text-xl font-bold text-brown-900">
+      <div className="bg-white p-6 rounded-xl shadow-sm border border-[#1F2937]">
+        <h2 className="text-xl font-bold text-gray-800">
           Top Selling Products of {brandName && branchName ? `${branchName} - ${brandName}` : `BranchBrand ${branchBrandId}`}
         </h2>
-        <p className="text-brown-600 mb-4">
+        <p className="text-gray-600 mb-4">
           The top products sold in the last {dateRange} days.
         </p>
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead>
-              <tr className="border-b border-brown-200">
-                <th className="text-left py-3 px-4 font-semibold text-brown-800">Product</th>
-                <th className="text-left py-3 px-4 font-semibold text-brown-800">Units Sold</th>
-                <th className="text-left py-3 px-4 font-semibold text-brown-800">Revenue</th>
+              <tr className="border-b border-[#1F2937]">
+                <th className="text-left py-3 px-4 font-semibold text-gray-800">Product</th>
+                <th className="text-left py-3 px-4 font-semibold text-gray-800">Units Sold</th>
+                <th className="text-left py-3 px-4 font-semibold text-gray-800">Revenue</th>
               </tr>
             </thead>
             <tbody>
               {topProducts.map((product, index) => (
-                <tr key={product.name} className="border-b border-brown-100 hover:bg-background transition-colors">
+                <tr key={product.name} className="border-b border-[#1F2937] hover:bg-background transition-colors">
                   <td className="py-3 px-4">
                     <div className="flex items-center gap-3">
                       <span className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold text-white ${
@@ -581,10 +581,10 @@ export function Reports() {
                       }`}>
                         {index + 1}
                       </span>
-                      {product.name}
+                      <p className='text-gray-700'>{product.name}</p>
                     </div>
                   </td>
-                  <td className="py-3 px-4 font-medium">{product.sales}</td>
+                  <td className="py-3 px-4 font-medium text-gray-700">{product.sales}</td>
                   <td className="py-3 px-4 font-bold text-primary">₱{product.revenue.toLocaleString()}</td>
                 </tr>
               ))}

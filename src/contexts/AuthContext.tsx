@@ -2,7 +2,6 @@ import React, { createContext, useContext, useEffect, useState } from 'react'
 import axios from 'axios'
 import { Employee, login } from '../api/employeeAPI'
 import { Branch, getBranches } from '../api/staticAPI'
-import bcrypt from "bcryptjs";
 import { staffDB } from "./staffDB";
 
 interface Profile {
