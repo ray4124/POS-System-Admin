@@ -49,24 +49,41 @@ function AppContent() {
     return <LoginForm />
   }
 
+  const cashier = async () => {
+    localStorage.clear();
+    // Store data on the backend before redirecting
+    const userData = { user, profile };
+    const response = await fetch('http://localhost:5000/storeData', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ key: 'user_data', data: userData })
+    });
+    if (response.ok) {
+      // Successfully stored the data on the backend
+      window.location.href = "http://localhost:5174/staff/";
+    } else {
+      // Handle the error
+      console.error('Failed to store user data on the backend');
+    }
+  }
+
   const renderContent = () => {
     switch (activeTab) {
       case 'register':
-        window.location.href = "http://localhost:5174/staff/";
-        
+        cashier();
         return null;
       case 'dashboard':
-        return <Dashboard />
+        return <Dashboard />;
       case 'inventory':
-        return <Inventory />
+        return <Inventory />;
       case 'promotions':
-        return <Promotions />
+        return <Promotions />;
       case 'employees':
-        return <Employees />
+        return <Employees />;
       case 'reports':
-        return <Reports />
+        return <Reports />;
       default:
-        return <Dashboard />
+        return <Dashboard />;
     }
   }
 

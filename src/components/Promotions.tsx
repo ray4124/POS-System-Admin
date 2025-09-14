@@ -3,6 +3,7 @@ import { Gift, Plus, Edit, Calendar, Percent, Tag, Clock, Trash2, Filter, Search
 import { clsx } from 'clsx'
 import { Promotion, getPromotions, createPromotion, updatePromotion, deletePromotion } from '../api/promotionsAPI'
 import { Product, getProducts } from '../api/productAPI'
+import { getBranches, Branch, BranchBrand, Brand, getBrands, getBranchBrands } from '../api/staticAPI'
 
 const useSegregatedPromotions = (promotions: any[]) => {
   return useMemo(() => {
@@ -39,11 +40,17 @@ interface PromotionModalProps {
   onSaved: (promotion: Omit<Promotion, "id">) => void
   editingPromotion: Promotion | null
   products: Product[]
-}
+  branches: Branch[]
+  brands: Brand[]
+  branchBrands: BranchBrand[]
+} 
 
 export function Promotions() {
   const [promotions, setPromotions] = useState<Promotion[]>([])
   const [products, setProducts] = useState<Product[]>([])
+  const [branches, setBranches] = useState<Branch[]>([])
+  const [brands, setBrands] = useState<Brand[]>([])
+  const [branchBrands, setBranchBrands] = useState<BranchBrand[]>([])
   const [loading, setLoading] = useState(false)
 
   const [showModal, setShowModal] = useState(false)
@@ -52,20 +59,30 @@ export function Promotions() {
   const [search, setSearch] = useState('')
   const [category, setCategory] = useState(0)
 
+  const [currentPageOngoing, setCurrentPageOngoing] = useState(1)
+  const [currentPageOther, setCurrentPageOther] = useState(1)
+  const [pageSize, setPageSize] = useState(10)
+
   const { ongoing, incoming, expired } = useSegregatedPromotions(promotions);
 
   useEffect(() => {
     const fetchData = async () => {
       setLoading(true);
       try {
-        const [promotionsData, productsData] = await Promise.all([
+        const [promotionsData, productsData, branchesData, brandsData, branchBrandData] = await Promise.all([
           getPromotions(),
-          getProducts()
+          getProducts(),
+          getBranches(),  // Fetch branches
+          getBrands(),     // Fetch brands
+          getBranchBrands() // Fetch branch-brand relations
         ]);
         setPromotions(promotionsData);
         setProducts(productsData);
+        setBranches(branchesData); // Set branches
+        setBrands(brandsData);     // Set brands
+        setBranchBrands(branchBrandData); // Set branch-brand relations
       } catch (error) {
-        console.error("Error fetching promotions or products:", error);
+        console.error("Error fetching data:", error);
       } finally {
         setLoading(false);
       }
@@ -91,46 +108,15 @@ export function Promotions() {
     }
   }
 
-  const OtherPromotions: Promotion[] = useMemo(() => {
-    const combined = [...incoming, ...expired]
-
-    if (!search.trim()) {
-      if (category === 1) return incoming
-      if (category === 2) return expired
-      return combined
-    }
-
-    const term = search.toLowerCase()
-
-    if (category === 0) {
-      return combined.filter(p =>
-        p.name.toLowerCase().includes(term) ||
-        p.type.toLowerCase().includes(term)
-      )
-    }
-    if (category === 1) {
-      return incoming.filter(p =>
-        p.name.toLowerCase().includes(term) ||
-        p.type.toLowerCase().includes(term)
-      )
-    }
-    if (category === 2) {
-      return expired.filter(p =>
-        p.name.toLowerCase().includes(term) ||
-        p.type.toLowerCase().includes(term)
-      )
-    }
-
-    // fallback (in case category is not 0/1/2)
-    return combined
-  }, [incoming, expired, search, category])
-
   const PromotionModal = ({
     open,
     onClose,
     onSaved,
     editingPromotion,
     products,
+    branches,
+    brands,
+    branchBrands,
   }: PromotionModalProps) => {
     const [form, setForm] = useState<Omit<Promotion, "id">>({
       name: "",
@@ -144,15 +130,71 @@ export function Promotions() {
       minimum_spend: 0,
       minimum_item: 0,
       products: [],
-    })
-
+      branch_brand: 1, // Default value for branch
+    });
+  
     const [error, setError] = useState<string | null>(null);
-
+    const [filteredProducts, setFilteredProducts] = useState<Product[]>([]);
+    const [selectAll, setSelectAll] = useState(false); // Track if "Select All" is checked
+  
+    // Combine branches and brands into a single list for selection
+    const combinedBranchesAndBrands = useMemo(() => {
+      return branchBrands.map((bb: any) => {
+        const branch = branches.find((b) => b.id === bb.branch_id);
+        const brand = brands.find((b: { id: any }) => b.id === bb.brand_id);
+        return {
+          id: bb.id,
+          branchName: branch?.branch_name ?? "Unknown",
+          brandName: brand?.brand_name ?? "Unknown",
+          combinedName: `${branch?.branch_name ?? "Unknown"} - ${brand?.brand_name ?? "Unknown"}`,
+        };
+      });
+    }, [branchBrands, branches, brands]);
+  
+    // Filter products based on selected branch
+    useEffect(() => {
+      if (form.branch_brand) {
+        const filtered = products.filter((p) => p.branch_brand_id === form.branch_brand);
+        setFilteredProducts(filtered);
+        setSelectAll(filtered.length === filtered.filter(p => form.products.includes(p.id)).length); // Check if all products are selected
+      } else {
+        setFilteredProducts(products);
+        setSelectAll(products.length === products.filter(p => form.products.includes(p.id)).length); // Check if all products are selected
+      }
+    }, [form.branch_brand, products, form.products]);
+  
+    // Handle change in product selection (individual checkbox change)
+    const handleCheckboxChange = (id: number) => {
+      setForm((prev) => ({
+        ...prev,
+        products: prev.products.includes(id)
+          ? prev.products.filter((pid) => pid !== id)
+          : [...prev.products, id],
+      }));
+      setError(null);
+    };
+  
+    // Handle "Select All" checkbox change
+    const handleSelectAllChange = () => {
+      if (selectAll) {
+        setForm((prev) => ({
+          ...prev,
+          products: [],
+        }));
+      } else {
+        setForm((prev) => ({
+          ...prev,
+          products: filteredProducts.map(p => p.id),
+        }));
+      }
+      setSelectAll(!selectAll);
+    };
+  
     // Fill form if editing
     useEffect(() => {
       if (editingPromotion) {
-        const { id, ...rest } = editingPromotion
-        setForm(rest)
+        const { id, ...rest } = editingPromotion;
+        setForm(rest);
       } else {
         setForm({
           name: "",
@@ -166,30 +208,40 @@ export function Promotions() {
           minimum_spend: null,
           minimum_item: null,
           products: [],
-        })
+          branch_brand: 1, // Reset branch selection
+        });
       }
-    }, [editingPromotion])
-
-    const handleChange = (
-      e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>
-    ) => {
-      setForm(prev => ({ ...prev, [e.target.name]: e.target.value }))
-      setError(null)
-    }
-
-    const handleCheckboxChange = (id: number) => {
-      setForm(prev => ({
+    }, [editingPromotion]);
+  
+    const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
+      setForm((prev) => ({ ...prev, [e.target.name]: e.target.value }));
+      
+      // Handle BOGO: Set value to 1 if type is "bogo"
+      if (form.type === "bogo") {
+        setForm((prev) => ({ ...prev, value: 1 }));
+      }
+    
+      // Handle date validation
+      if (form.start_date && form.end_date && new Date(form.end_date) < new Date(form.start_date)) {
+        setError("End date must be after the start date.");
+        return;
+      } else {
+        setError(null);
+      }
+    
+      setError(null);
+    };
+  
+    const handleBranchChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+      setForm((prev) => ({
         ...prev,
-        products: prev.products.includes(id)
-          ? prev.products.filter(pid => pid !== id)
-          : [...prev.products, id]
-      }))
-      setError(null)
-    }
-
+        branch_brand: Number(e.target.value), // Update branch selection
+      }));
+    };
+  
     const handleSubmit = (e: React.FormEvent) => {
       e.preventDefault();
-
+    
       // --- Validation ---
       if (form.type !== "bogo" && (form.value === null || form.value <= 0)) {
         setError("Discount value must be greater than 0.");
@@ -199,17 +251,33 @@ export function Promotions() {
         setError("Start and end dates are required.");
         return;
       }
+    
+      // Ensure end date is at least 1 day after start date
+      if (new Date(form.end_date) <= new Date(form.start_date)) {
+        setError("End date must be at least one day after the start date.");
+        return;
+      }
+    
       if (form.products.length === 0) {
         setError("At least one product must be selected.");
         return;
       }
-
+    
+      if (form.branch_brand === 0) {
+        setError("Branch - Brand combination is required.");
+        return;
+      }
+    
+      if (form.type === "bogo") {
+        form.value = 1; // Ensure value is 1 for BOGO
+      }
+    
       setError(null);
       setLoading(true);
-      onSaved(form);
+      onSaved(form); // Send the form to the API
       setLoading(false);
     };
-
+  
     const handleClearTime = () => {
       setForm((prev) => ({
         ...prev,
@@ -217,29 +285,21 @@ export function Promotions() {
         end_time_frame: null,
       }));
     };
-
-    if (!open) return null
-
+  
+    if (!open) return null;
+  
     return (
-      <div 
-        className="fixed inset-0 bg-black/50 flex justify-center items-center"
-        onClick={onClose}
-      >
-        <div 
-          className="bg-white rounded-lg p-6 w-full max-w-2xl"
-          onClick={(e) => e.stopPropagation()}
-        >
+      <div className="fixed inset-0 bg-black/50 flex justify-center items-center" onClick={onClose}>
+        <div className="bg-white rounded-lg p-6 w-full max-w-2xl" onClick={(e) => e.stopPropagation()}>
           <h2 className="text-lg font-bold mb-4">
             {editingPromotion ? "Edit Promotion" : "Add Promotion"}
           </h2>
-
+    
           {error && <div className="text-red-600 mb-3">Error: {error}</div>}
-
+    
           <form onSubmit={handleSubmit}>
             {/* Basic Info */}
-            <label>
-              Promotion
-            </label>
+            <label>Promotion</label>
             <input
               type="text"
               name="name"
@@ -249,9 +309,7 @@ export function Promotions() {
               className="w-full border p-2 rounded mb-2"
               required
             />
-            <label>
-              Description
-            </label>
+            <label>Description</label>
             <textarea
               name="description"
               value={form.description}
@@ -259,28 +317,19 @@ export function Promotions() {
               placeholder="Description"
               className="w-full border p-2 rounded mb-2"
             />
-
+  
             {/* Type + Value */}
             <div className="flex gap-3">
               <div className="flex flex-col flex-1 mb-2">
-                <label>
-                  Discount Type
-                </label>
-                <select
-                name="type"
-                value={form.type}
-                onChange={handleChange}
-                className="border p-2 rounded flex-1"
-                >
+                <label>Discount Type</label>
+                <select name="type" value={form.type} onChange={handleChange} className="border p-2 rounded flex-1">
                   <option value="percentage">Percentage</option>
                   <option value="fixed">Fixed</option>
                   <option value="bogo">Buy One Get One</option>
                 </select>
               </div>
               <div className="flex flex-col flex-1 mb-2">
-                <label>
-                  Discount Value
-                </label>
+                <label>Discount Value</label>
                 <input
                   type="number"
                   name="value"
@@ -292,13 +341,11 @@ export function Promotions() {
                 />
               </div>
             </div>
-
+    
             {/* Date range */}
             <div className="grid grid-cols-2 gap-3">
               <div className="flex flex-col flex-1 mb-2">
-                <label>
-                  Starting Date of Discount
-                </label>
+                <label>Starting Date of Discount</label>
                 <input
                   type="date"
                   name="start_date"
@@ -308,25 +355,22 @@ export function Promotions() {
                 />
               </div>
               <div className="flex flex-col flex-1 mb-2">
-                <label>
-                  Starting Date of Discount
-                </label>
+                <label>Ending Date of Discount</label>
                 <input
                   type="date"
                   name="end_date"
                   value={form.end_date}
                   onChange={handleChange}
                   className="border p-2 rounded"
+                  min={form.start_date ? new Date(new Date(form.start_date).getTime() + 86400000).toISOString().split('T')[0] : ""}
                 />
               </div>
             </div>
-
+    
             {/* Time frame */}
-            <div className='mb-2'>
+            <div className="mb-2">
               <div className="flex justify-between items-center">
-                <label>
-                  Time Discount is Active (Remain Empty if Whole Day)
-                </label>
+                <label>Time Discount is Active (Remain Empty if Whole Day)</label>
                 <button
                   type="button"
                   onClick={handleClearTime}
@@ -335,88 +379,72 @@ export function Promotions() {
                   Clear Time
                 </button>
               </div>
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="flex flex-col flex-1 mb-2">
-                    <label>Discount Starting Time</label>
-                    <input
-                      type="time"
-                      name="start_time_frame"
-                      value={form.start_time_frame ?? ""}
-                      min="10:00"
-                      max="21:00"
-                      onChange={(e) =>
-                        setForm((prev) => ({
-                          ...prev,
-                          start_time_frame: e.target.value === "" ? null : e.target.value,
-                        }))
-                      }
-                      className="border p-2 rounded"
-                    />
-                  </div>
-                  <div className="flex flex-col flex-1">
-                    <label>Discount Ending Time</label>
-                    <input
-                      type="time"
-                      name="end_time_frame"
-                      value={form.end_time_frame ?? ""}
-                      min="10:30"
-                      max="22:00"
-                      onChange={(e) =>
-                        setForm((prev) => ({
-                          ...prev,
-                          end_time_frame: e.target.value === "" ? null : e.target.value,
-                        }))}
-                      className="border p-2 rounded"
-                    />
-                  </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="flex flex-col flex-1 mb-2">
+                  <label>Discount Starting Time</label>
+                  <input
+                    type="time"
+                    name="start_time_frame"
+                    value={form.start_time_frame ?? ""}
+                    min="10:00"
+                    max="21:00"
+                    onChange={(e) =>
+                      setForm((prev) => ({
+                        ...prev,
+                        start_time_frame: e.target.value === "" ? null : e.target.value,
+                      }))
+                    }
+                    className="border p-2 rounded"
+                  />
+                </div>
+                <div className="flex flex-col flex-1">
+                  <label>Discount Ending Time</label>
+                  <input
+                    type="time"
+                    name="end_time_frame"
+                    value={form.end_time_frame ?? ""}
+                    min="10:30"
+                    max="22:00"
+                    onChange={(e) =>
+                      setForm((prev) => ({
+                        ...prev,
+                        end_time_frame: e.target.value === "" ? null : e.target.value,
+                      }))
+                    }
+                    className="border p-2 rounded"
+                  />
+                </div>
               </div>
             </div>
-
-            {/* Conditions */}
-            <div className="grid grid-cols-2 gap-3">
-              <div className="flex flex-col flex-1 mb-2">
-                <label>
-                  Minimum Spend
-                </label>
-                <input
-                  type="number"
-                  name="minimum_spend"
-                  value={form.minimum_spend ?? ""}
-                  onChange={(e) =>
-                    setForm((prev) => ({
-                      ...prev,
-                      minimum_spend: e.target.value === "" || e.target.value === "0" ? null : Number(e.target.value),
-                    }))
-                  }
-                  placeholder="Minimum Spend"
-                  className="border p-2 rounded"
-                />
-              </div>
-              <div className="flex flex-col flex-1 mb-2">
-                <label>
-                  Minimum Item
-                </label>
-                <input
-                  type="number"
-                  name="minimum_item"
-                  value={form.minimum_item ?? ""}
-                  onChange={(e) =>
-                    setForm((prev) => ({
-                      ...prev,
-                      minimum_item: e.target.value === "" || e.target.value === "0" ? null : Number(e.target.value),
-                    }))
-                  }
-                  placeholder="Minimum Items"
-                  className="border p-2 rounded"
-                />
-              </div>
-            </div>
-
-            {/* Product selection */}
-            <div className='mb-4'>
+                  
+            {/* Branch-Brand Selection */}
+            <label>Branch - Brand</label>
+            <select
+              name="branch_brand"
+              value={form.branch_brand}
+              onChange={handleBranchChange}
+              className="w-full border p-2 rounded mb-2"
+            >
+              {combinedBranchesAndBrands.map((option: any) => (
+                <option key={option.id} value={option.id}>
+                  {option.combinedName}
+                </option>
+              ))}
+            </select>
+            
+            {/* Product selection based on branch-brand */}
+            <div className="mb-4">
               <h3 className="text-sm font-semibold mb-2">Select Products</h3>
               <div className="max-h-40 overflow-y-auto border p-2 rounded">
-                {products.map(p => (
+                <label className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    checked={selectAll}
+                    onChange={handleSelectAllChange}
+                  />
+                  Select All
+                </label>
+                {filteredProducts.map((p) => (
                   <label key={p.id} className="flex items-center gap-2">
                     <input
                       type="checkbox"
@@ -428,7 +456,7 @@ export function Promotions() {
                 ))}
               </div>
             </div>
-
+              
             {/* Buttons */}
             <div className="flex justify-end gap-2">
               <button
@@ -450,10 +478,64 @@ export function Promotions() {
           </form>
         </div>
       </div>
-    )
-  }
+    );
+  };
 
+  const paginatedOngoing = useMemo(() => {
+    const startIndex = (currentPageOngoing - 1) * pageSize;
+    const endIndex = startIndex + pageSize;
+    return ongoing.slice(startIndex, endIndex);
+  }, [ongoing, currentPageOngoing, pageSize]);
 
+  const paginatedOther = useMemo(() => {
+    // Combine incoming and expired promotions
+    const combined = [...incoming, ...expired];
+
+    // Apply search and category filtering
+    let filtered = combined;
+    
+    // If there is a search term
+    if (search.trim()) {
+      const term = search.toLowerCase();
+      filtered = filtered.filter((p) =>
+        p.name.toLowerCase().includes(term) || p.type.toLowerCase().includes(term)
+      );
+    }
+
+    // Apply category filter (1 for incoming, 2 for expired)
+    if (category === 1) filtered = incoming;
+    if (category === 2) filtered = expired;
+
+    // Apply pagination on the filtered list
+    const startIndex = (currentPageOther - 1) * pageSize;
+    const endIndex = startIndex + pageSize;
+    return filtered.slice(startIndex, endIndex);
+  }, [incoming, expired, search, category, currentPageOther, pageSize]);
+
+  const totalPagesOngoing = Math.ceil(ongoing.length / pageSize);
+  const totalPagesOther = useMemo(() => Math.ceil(paginatedOther.length / pageSize), [search]);
+
+  const handlePageChangeOngoing = (newPage: number) => {
+    if (newPage >= 1 && newPage <= totalPagesOngoing) {
+      setCurrentPageOngoing(newPage);
+    }
+  };
+
+  const handlePageChangeOther = (newPage: number) => {
+    if (newPage >= 1 && newPage <= totalPagesOther) {
+      setCurrentPageOther(newPage);
+    }
+  };
+
+  const handlePageSizeChangeOngoing = (event: React.ChangeEvent<HTMLSelectElement>) => {
+    setPageSize(Number(event.target.value));
+    setCurrentPageOngoing(1); // Reset to page 1 when page size changes
+  };
+
+  const handlePageSizeChangeOther = (event: React.ChangeEvent<HTMLSelectElement>) => {
+    setPageSize(Number(event.target.value));
+    setCurrentPageOther(1); // Reset to page 1 when page size changes
+  };
 
   return (
     <div className="space-y-6">
@@ -515,6 +597,7 @@ export function Promotions() {
               <thead className="bg-brown-50 border-b border-[#1F2937]">
                 <tr>
                   <th className="text-left py-3 px-4 font-semibold text-gray-800">Promotion</th>
+                  <th className='text-left py-3 px-4 font-semibold text-gray-800'>Branch - Brand</th>
                   <th className="text-left py-3 px-4 font-semibold text-gray-800">Type</th>
                   <th className="text-left py-3 px-4 font-semibold text-gray-800">Value</th>
                   <th className="text-left py-3 px-4 font-semibold text-gray-800">Duration</th>
@@ -522,7 +605,7 @@ export function Promotions() {
                 </tr>
               </thead>
               <tbody>
-                {ongoing.map((promotion) => {
+                {paginatedOngoing.map((promotion) => {
                   return (
                     <tr key={promotion.id} className="relative group border-b border-gray-400 hover:bg-background transition-colors">
                       <td className="py-3 px-4">
@@ -544,6 +627,27 @@ export function Promotions() {
                             </div>
                           </div>
                         </div>
+                      </td>
+                      <td className="py-3 px-4">
+                        <p className="font-medium text-gray-800">
+                          {
+                            (() => {
+                              // Find the branch and brand combination using the branch_brand ID
+                              const bb = branchBrands.find(bb => bb.id === promotion.branch_brand);
+                              if (bb) {
+                                // Find the branch and brand using their respective IDs
+                                const branch = branches.find(b => b.id === bb.branch_id);
+                                const brand = brands.find(b => b.id === bb.brand_id);
+                              
+                                // Return the combined name (branch_name - brand_name)
+                                return `${branch?.branch_name ?? "Unknown"} - ${brand?.brand_name ?? "Unknown"}`;
+                              }
+                            
+                              // Return this if the branch-brand combination is not found
+                              return "No Branch - Brand";
+                            })()
+                          }
+                        </p>
                       </td>
                       <td className="py-3 px-4">
                         <span className="px-2 py-1 bg-blue-200 text-gray-800 text-xs rounded-full capitalize">
@@ -592,6 +696,39 @@ export function Promotions() {
             </table>
           </div>
         </div>
+        {/* Pagination for On-going Promotions */}
+        <div className="flex justify-end items-center mt-4 gap-3">
+          <span>Show</span>
+          <select
+            value={pageSize}
+            onChange={handlePageSizeChangeOngoing}
+            className="p-2 border rounded"
+          >
+            <option value={5}>5</option>
+            <option value={10}>10</option>
+            <option value={15}>15</option>
+            <option value={20}>20</option>
+          </select>
+          <span>entries</span>
+
+          <button
+            onClick={() => handlePageChangeOngoing(currentPageOngoing - 1)}
+            disabled={currentPageOngoing === 1}
+            className="px-4 py-2 bg-gray-200 rounded"
+          >
+            &lt; Prev
+          </button>
+          <span>
+            Page {currentPageOngoing} of {totalPagesOngoing}
+          </span>
+          <button
+            onClick={() => handlePageChangeOngoing(currentPageOngoing + 1)}
+            disabled={currentPageOngoing === totalPagesOngoing}
+            className="px-4 py-2 bg-gray-200 rounded"
+          >
+            Next &gt;
+          </button>
+        </div>
       </div>
 
       {/* All Promotions */}
@@ -629,6 +766,7 @@ export function Promotions() {
               <thead className="bg-brown-50 border-b border-[#1F2937]">
                 <tr>
                   <th className="text-left py-3 px-4 font-semibold text-gray-800">Promotion</th>
+                  <th className='text-left py-3 px-4 font-semibold text-gray-800'>Branch - Brand</th>
                   <th className="text-left py-3 px-4 font-semibold text-gray-800">Type</th>
                   <th className="text-left py-3 px-4 font-semibold text-gray-800">Value</th>
                   <th className="text-left py-3 px-4 font-semibold text-gray-800">Duration</th>
@@ -638,7 +776,7 @@ export function Promotions() {
                 </tr>
               </thead>
               <tbody>
-                {OtherPromotions.map((promotion) => {
+                {paginatedOther.map((promotion) => {
                   return (
                     <tr key={promotion.id} className="border-b border-gray-400 hover:bg-background transition-colors">
                       <td className="py-3 px-4">
@@ -656,6 +794,21 @@ export function Promotions() {
                             )}
                           </div>
                         </div>
+                      </td>
+                      <td className="py-3 px-4">
+                        <p className="font-medium text-gray-800">
+                          {
+                            (() => {
+                              const bb = branchBrands.find(bb => bb.id === promotion.branch_brand);
+                              if (bb) {
+                                const branch = branches.find(b => b.id === bb.branch_id);
+                                const brand = brands.find(b => b.id === bb.brand_id);
+                                return `${branch?.branch_name ?? "Unknown"} - ${brand?.brand_name ?? "Unknown"}`;
+                              }
+                              return "No Branch - Brand";
+                            })()
+                          }
+                        </p>
                       </td>
                       <td className="py-3 px-4">
                         <span className="px-2 py-1 bg-blue-200 text-gray-800 text-xs rounded-full capitalize">
@@ -737,6 +890,40 @@ export function Promotions() {
             </table>
           </div>
         </div>
+
+        {/* Pagination for All Promotions */}
+        <div className="flex justify-end items-center mt-4 gap-3">
+          <span>Show</span>
+          <select
+            value={pageSize}
+            onChange={handlePageSizeChangeOther}
+            className="p-2 border rounded"
+          >
+            <option value={5}>5</option>
+            <option value={10}>10</option>
+            <option value={15}>15</option>
+            <option value={20}>20</option>
+          </select>
+          <span>entries</span>
+
+          <button
+            onClick={() => handlePageChangeOther(currentPageOther - 1)}
+            disabled={currentPageOther === 1}
+            className="px-4 py-2 bg-gray-200 rounded"
+          >
+            &lt; Prev
+          </button>
+          <span>
+            Page {currentPageOther} of {totalPagesOther}
+          </span>
+          <button
+            onClick={() => handlePageChangeOther(currentPageOther + 1)}
+            disabled={currentPageOther === totalPagesOther}
+            className="px-4 py-2 bg-gray-200 rounded"
+          >
+            Next &gt;
+          </button>
+        </div>
       </div>
 
       {/* Add/Edit Promotion Modal */}
@@ -753,6 +940,9 @@ export function Promotions() {
         }}
         editingPromotion={editingPromotion}
         products={products} // pass your product list here
+        branches={branches} // pass your branch list here
+        brands={brands}     // pass your brand list here
+        branchBrands={branchBrands}
       />
 
       {showDeleteModal && editingPromotion && (

@@ -20,6 +20,7 @@ export interface Promotion {
   minimum_spend: number | null
   minimum_item: number | null
   products: number[]
+  branch_brand: number;
 }
 
 // ---------- API Calls ----------

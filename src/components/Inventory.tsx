@@ -54,6 +54,9 @@ export function Inventory() {
 
   const [loading, setLoading] = useState(false);
 
+  const [currentPage, setCurrentPage] = useState(1); // Default to page 1
+  const [pageSize, setPageSize] = useState(10); // Default to 10 items per page
+
   useEffect(() => {
     async function loadData() {
       const [branchesRes, brandsRes, branchBrandsRes, productsRes] = await Promise.all([
@@ -124,6 +127,23 @@ export function Inventory() {
     });
   }, [products, filter, search, confirmModal]);
 
+  const totalPages = Math.ceil(filteredProducts.length / pageSize);
+  const paginatedProducts = useMemo(() => {
+    const startIndex = (currentPage - 1) * pageSize;
+    const endIndex = startIndex + pageSize;
+    return filteredProducts.slice(startIndex, endIndex);
+  }, [filteredProducts, currentPage, pageSize]);
+
+  const handlePageChange = (newPage: number) => {
+    if (newPage >= 1 && newPage <= totalPages) {
+      setCurrentPage(newPage);
+    }
+  };
+
+  const handlePageSizeChange = (event: React.ChangeEvent<HTMLSelectElement>) => {
+    setPageSize(Number(event.target.value));
+    setCurrentPage(1); // Reset to page 1 when page size changes
+  };
 
   // 🔹 Handle Product Creation and Editing
   const ProductModal = ({
@@ -524,13 +544,13 @@ export function Inventory() {
       {/* Products Table */}
       <div className="bg-white rounded-xl shadow-sm border border-[#1F2937] overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="w-full">
+          <table className="w-full transition-all duration-5000 ease-in-out">
             <thead className="bg-brown-50 border-b border-[#1F2937]">
               <tr>
                 <th className="text-left py-3 px-4 font-semibold text-gray-800">Product</th>
                 <th className="text-left py-3 px-4 font-semibold text-gray-800">Category</th>
                 {filter === 0 && (
-                <th className="text-left py-3 px-4 font-semibold text-gray-800">Branch and Brand</th>
+                  <th className="text-left py-3 px-4 font-semibold text-gray-800">Branch and Brand</th>
                 )}
                 <th className="text-left py-3 px-4 font-semibold text-gray-800">Price</th>
                 <th className="text-left py-3 px-4 font-semibold text-gray-800">Cost</th>
@@ -539,18 +559,21 @@ export function Inventory() {
               </tr>
             </thead>
             <tbody>
-              {filteredProducts.map((p) => {
+              {paginatedProducts.map((p) => {
                 const bb = branchBrand.find((bb) => bb.id === p.branch_brand_id);
-
+              
                 const branchName =
                   branches.find((b) => b.id === bb?.branch_id)?.branch_name ||
                   `Branch ${bb?.branch_id}`;
                 const brandName =
                   brands.find((br) => br.id === bb?.brand_id)?.brand_name ||
                   `Brand ${bb?.brand_id}`;
-                
+              
                 return (
-                  <tr key={p.id} className="border-b border-gray-400 hover:bg-background transition-colors">
+                  <tr
+                    key={p.id}
+                    className="border-b border-gray-400 hover:bg-background transition-all duration-700 ease-in-out"
+                  >
                     <td className="py-3 px-4">
                       <p className="font-medium text-brown-900">{p.product_name}</p>
                     </td>
@@ -565,10 +588,12 @@ export function Inventory() {
                     <td className="py-3 px-4 font-semibold text-primary">₱{p.price}</td>
                     <td className="py-3 px-4">
                       <div className="flex items-center gap-2">
-                        <span className={clsx(
-                          "font-medium",
-                          p.stock < p.alert_at ? "text-error" : "text-brown-900"
-                        )}>
+                        <span
+                          className={clsx(
+                            'font-medium',
+                            p.stock < p.alert_at ? 'text-error' : 'text-brown-900'
+                          )}
+                        >
                           {p.stock}
                         </span>
                         {p.stock < p.alert_at && (
@@ -578,12 +603,14 @@ export function Inventory() {
                       <p className="text-xs text-brown-600">Alert at {p.alert_at}</p>
                     </td>
                     <td className="py-3 px-4">
-                      <span className={clsx(
-                        "px-2 py-1 text-xs rounded-full",
-                        p.is_active
-                          ? "bg-green-100 text-green-800"
-                          : "bg-brown-100 text-brown-600"
-                      )}>
+                      <span
+                        className={clsx(
+                          'px-2 py-1 text-xs rounded-full',
+                          p.is_active
+                            ? 'bg-green-100 text-green-800'
+                            : 'bg-brown-100 text-brown-600'
+                        )}
+                      >
                         {p.is_active ? 'Active' : 'Inactive'}
                       </span>
                     </td>
@@ -591,7 +618,7 @@ export function Inventory() {
                       <div className="flex items-center gap-2">
                         <button
                           onClick={() => {
-                            setConfirmModal({ type: "restock", product: p })
+                            setConfirmModal({ type: 'restock', product: p });
                           }}
                           className="p-1 text-green-500 hover:bg-brown-100 hover:text-green-900 rounded transition-colors"
                         >
@@ -599,7 +626,7 @@ export function Inventory() {
                         </button>
                         <button
                           onClick={() => {
-                            setConfirmModal({ type: "status", product: p })
+                            setConfirmModal({ type: 'status', product: p });
                           }}
                           className={`p-1 text-yellow-600 hover:bg-brown-100 hover:text-yellow-900 rounded transition-colors`}
                         >
@@ -610,14 +637,17 @@ export function Inventory() {
                           )}
                         </button>
                         <button
-                          onClick={() => { setEditingProduct(p); setShowProductModal(true); }}
+                          onClick={() => {
+                            setEditingProduct(p);
+                            setShowProductModal(true);
+                          }}
                           className="p-1 text-primary hover:bg-primary hover:text-white rounded transition-colors"
                         >
                           <Edit className="h-6 w-6" />
                         </button>
                         <button
                           onClick={() => {
-                            setConfirmModal({ type: "delete", product: p })
+                            setConfirmModal({ type: 'delete', product: p });
                           }}
                           className="p-1 text-error hover:bg-error hover:text-white rounded transition-colors"
                         >
@@ -626,10 +656,48 @@ export function Inventory() {
                       </div>
                     </td>
                   </tr>
-                )
+                );
               })}
             </tbody>
           </table>
+        </div>
+      </div>;
+            
+      {/* Pagination */}
+      <div className="flex gap-10 items-center justify-end">
+        <div className="flex items-center gap-3">
+          <span>Show</span>
+          <select
+            value={pageSize}
+            onChange={handlePageSizeChange}
+            className="p-2 border rounded"
+          >
+            <option value={5}>5</option>
+            <option value={10}>10</option>
+            <option value={15}>15</option>
+            <option value={20}>20</option>
+          </select>
+          <span>entries</span>
+        </div>
+            
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => handlePageChange(currentPage - 1)}
+            disabled={currentPage === 1}
+            className="px-4 py-2 bg-gray-200 rounded"
+          >
+            &lt; Prev
+          </button>
+          <span>
+            Page {currentPage} of {totalPages}
+          </span>
+          <button
+            onClick={() => handlePageChange(currentPage + 1)}
+            disabled={currentPage === totalPages}
+            className="px-4 py-2 bg-gray-200 rounded"
+          >
+            Next &gt;
+          </button>
         </div>
       </div>
 
